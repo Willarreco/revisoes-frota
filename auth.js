@@ -1,5 +1,5 @@
-// Inicializar cliente Supabase
-const supabase = supabase.createClient(window.supabaseConfig.url, window.supabaseConfig.key);
+// Inicializar cliente Supabase com nome diferente para evitar conflito
+const supabaseClient = supabase.createClient(window.supabaseConfig.url, window.supabaseConfig.key);
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = emailInput.value;
             const password = passwordInput.value;
 
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
                 email,
                 password,
             });
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const { data, error } = await supabase.auth.signUp({
+            const { data, error } = await supabaseClient.auth.signUp({
                 email,
                 password,
             });
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) {
                 showError(error.message);
             } else {
-                alert('Conta criada! Verifique seu e-mail para confirmar (se necessário) ou tente logar.');
+                alert('Conta criada! Agora você pode clicar em "Entrar".');
             }
         });
     }
@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Função global para verificar sessão
 async function checkSession() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session && !window.location.href.includes('login.html')) {
         window.location.href = 'login.html';
     }
@@ -65,8 +65,8 @@ async function checkSession() {
 
 // Função de logout
 async function logout() {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     window.location.href = 'login.html';
 }
 
-window.supabaseClient = supabase;
+window.supabaseClient = supabaseClient;
