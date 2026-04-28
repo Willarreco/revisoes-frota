@@ -1,5 +1,5 @@
 // Inicializar cliente Supabase
-const supabase = supabasejs.createClient(window.supabaseConfig.url, window.supabaseConfig.key);
+const supabase = supabase.createClient(window.supabaseConfig.url, window.supabaseConfig.key);
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
