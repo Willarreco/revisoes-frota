@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="config.js"></script>
     <script src="auth.js"></script>
 </head>
@@ -18,12 +20,22 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>LoanAdmin</h2>
+                <img src="logo.png" alt="WAEMPRESTIMO Logo" class="app-logo">
+                <h2>WAEMPRESTIMO</h2>
             </div>
             <nav class="sidebar-nav">
-                <button class="nav-btn active" id="btn-inicio">Início</button>
-                <button class="nav-btn" id="btn-config">Configurações</button>
-                <button class="nav-btn" id="btn-logout" onclick="logout()" style="color: #ff4d4d; margin-top: auto;">Sair</button>
+                <button class="nav-btn active" id="btn-inicio">
+                    <i class="fas fa-home"></i>
+                    <span>Início</span>
+                </button>
+                <button class="nav-btn" id="btn-config">
+                    <i class="fas fa-cog"></i>
+                    <span>Ajustes</span>
+                </button>
+                <button class="nav-btn" id="btn-logout" onclick="logout()" style="color: #ff4d4d;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sair</span>
+                </button>
             </nav>
             <div class="sidebar-footer">
                 <div class="theme-selector">
@@ -56,8 +68,18 @@
                         <input type="number" id="valor-pego" placeholder="0,00">
                     </div>
                     <div class="input-group">
-                        <label for="valor-juros">Juros (%):</label>
-                        <input type="number" id="valor-juros" placeholder="0%">
+                        <label for="valor-juros">Juros:</label>
+                        <div class="input-with-select">
+                            <input type="number" id="valor-juros" placeholder="0">
+                            <select id="tipo-juros">
+                                <option value="percent">%</option>
+                                <option value="fixed">R$</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="valor-cobrado">Valor Cobrado (Opcional):</label>
+                        <input type="number" id="valor-cobrado" placeholder="0,00">
                     </div>
                     <div class="input-group">
                         <label for="data-pagamento">Data de Pagamento:</label>
@@ -66,6 +88,68 @@
                 </div>
                 <div class="form-actions">
                     <button id="add-client-btn" class="primary-btn">Adicionar Novo Cliente</button>
+                </div>
+            </section>
+
+            <section class="dashboard-stats">
+                <div class="kpi-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(0, 123, 255, 0.1); color: #007bff;">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total Emprestado</h3>
+                            <p id="total-emprestado" class="stat-value">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(40, 167, 69, 0.1); color: #28a745;">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Lucro Estimado</h3>
+                            <p id="total-mensal" class="stat-value">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(23, 162, 184, 0.1); color: #17a2b8;">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Clientes Ativos</h3>
+                            <p id="total-clientes" class="stat-value">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(220, 53, 69, 0.1); color: #dc3545;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Em Atraso</h3>
+                            <p id="total-atraso" class="stat-value">R$ 0,00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="card-header">
+                            <h3>Distribuição de Arrecadação</h3>
+                            <p>Receita por cliente (Juros + Taxas)</p>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="loanChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="card-header">
+                            <h3>Status dos Pagamentos</h3>
+                            <p>Distribuição de prazos</p>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -82,6 +166,7 @@
                                 <th>Telefone</th>
                                 <th>Valor Pego</th>
                                 <th>Juros</th>
+                                <th>Cobrado</th>
                                 <th>Total a Pagar</th>
                                 <th>Data Pagto.</th>
                                 <th>Ações</th>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - LoanAdmin Cloud</title>
+    <title>Login - WAEMPRESTIMO Cloud</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -11,7 +11,10 @@
 <body class="dark-theme">
     <div class="login-container">
         <div class="login-box">
-            <h1>LoanAdmin</h1>
+            <div class="login-header">
+                <img src="logo.png" alt="WAEMPRESTIMO Logo" class="app-logo-small">
+                <h1>WAEMPRESTIMO</h1>
+            </div>
             <p>Gerenciamento de Empréstimos na Nuvem</p>
             
             <form id="login-form">
@@ -40,9 +43,24 @@
             height: 100vh;
             background-color: var(--bg-dark);
         }
+        .login-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .app-logo-small {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary-blue);
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.2);
+        }
         .login-box {
             background-color: var(--card-bg);
-            padding: 3rem;
+            padding: 2.5rem;
             border-radius: 12px;
             border: 1px solid var(--border-color);
             width: 100%;

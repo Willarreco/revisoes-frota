@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         telefone: document.getElementById('cliente-telefone'),
         valor: document.getElementById('valor-pego'),
         juros: document.getElementById('valor-juros'),
+        tipoJuros: document.getElementById('tipo-juros'),
+        cobrado: document.getElementById('valor-cobrado'),
         data: document.getElementById('data-pagamento')
     };
     const addBtn = document.getElementById('add-client-btn');
@@ -23,6 +25,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ADMIN_PHONE = '027997200333';
 
     let loans = [];
+    let editingLoanId = null;
+    let loanChart = null;
+    let statusChart = null;
 
     // Initialize
     loadLoans();
@@ -47,6 +52,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 telefone: l.telefone,
                 valor: parseFloat(l.valor),
                 juros: parseFloat(l.juros),
+                tipoJuros: l.tipo_juros || 'percent',
+                cobrado: parseFloat(l.valor_cobrado || 0),
                 totalAPagar: parseFloat(l.total_a_pagar),
                 data: l.data_pagamento
             }));
@@ -54,12 +61,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             checkExpirations();
         }
     }
-
     async function addLoan() {
         const nome = loanForm.nome.value.trim();
         const telefone = loanForm.telefone.value.trim();
         const valor = parseFloat(loanForm.valor.value);
         const juros = parseFloat(loanForm.juros.value);
+        const tipoJuros = loanForm.tipoJuros.value;
+        const cobrado = parseFloat(loanForm.cobrado.value) || 0;
         const data = loanForm.data.value;
 
         if (!nome || !telefone || isNaN(valor) || isNaN(juros) || !data) {
@@ -67,26 +75,57 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const totalAPagar = valor + (valor * (juros / 100));
+        // Cálculo do total a pagar baseado no tipo de juros
+        const valorJurosCalculado = tipoJuros === 'percent' ? (valor * (juros / 100)) : juros;
+        const totalAPagar = valor + valorJurosCalculado + cobrado;
 
-        const { data: newEntry, error } = await supabase
-            .from('loans')
-            .insert([{
-                user_id: user.id,
-                nome,
-                telefone,
-                valor,
-                juros,
-                total_a_pagar: totalAPagar,
-                data_pagamento: data
-            }])
-            .select();
+        if (editingLoanId) {
+            const { error } = await supabase
+                .from('loans')
+                .update({
+                    nome,
+                    telefone,
+                    valor,
+                    juros,
+                    tipo_juros: tipoJuros,
+                    valor_cobrado: cobrado,
+                    total_a_pagar: totalAPagar,
+                    data_pagamento: data
+                })
+                .eq('id', editingLoanId);
 
-        if (error) {
-            alert('Erro ao salvar no banco de dados: ' + error.message);
+            if (error) {
+                alert('Erro ao atualizar: ' + error.message);
+            } else {
+                editingLoanId = null;
+                addBtn.textContent = 'Adicionar Novo Cliente';
+                addBtn.classList.remove('success-btn');
+                addBtn.classList.add('primary-btn');
+                loadLoans();
+                clearForm();
+            }
         } else {
-            loadLoans();
-            clearForm();
+            const { data: newEntry, error } = await supabase
+                .from('loans')
+                .insert([{
+                    user_id: user.id,
+                    nome,
+                    telefone,
+                    valor,
+                    juros,
+                    tipo_juros: tipoJuros,
+                    valor_cobrado: cobrado,
+                    total_a_pagar: totalAPagar,
+                    data_pagamento: data
+                }])
+                .select();
+
+            if (error) {
+                alert('Erro ao salvar no banco de dados: ' + error.message);
+            } else {
+                loadLoans();
+                clearForm();
+            }
         }
     }
 
@@ -126,7 +165,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td><strong>${loan.nome}</strong></td>
                 <td>${loan.telefone}</td>
                 <td>R$ ${loan.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td>${loan.juros}%</td>
+                <td>${loan.tipoJuros === 'percent' ? loan.juros + '%' : 'R$ ' + loan.juros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td>R$ ${loan.cobrado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td style="color: #4facfe; font-weight: bold;">R$ ${loan.totalAPagar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td>
                     ${formatDate(loan.data)} 
@@ -134,11 +174,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </td>
                 <td>
                     <button class="whatsapp-btn" onclick="notifyClient('${loan.id}')">Notificar</button>
+                    <button class="edit-btn" onclick="editLoan('${loan.id}')">Editar</button>
                     <button class="danger-btn" onclick="deleteLoan('${loan.id}')">Excluir</button>
                 </td>
             `;
             loanList.appendChild(tr);
         });
+
+        updateDashboard();
     }
 
     function checkExpirations() {
@@ -166,6 +209,102 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } else {
             alertsBar.style.display = 'none';
+        }
+    }
+
+    function updateDashboard() {
+        const totalEmprestadoEl = document.getElementById('total-emprestado');
+        const totalMensalEl = document.getElementById('total-mensal');
+        const totalClientesEl = document.getElementById('total-clientes');
+        const totalAtrasoEl = document.getElementById('total-atraso');
+
+        let totalEmprestado = 0;
+        let totalLucro = 0;
+        let totalAtraso = 0;
+        
+        const statusCounts = { overdue: 0, today: 0, upcoming: 0 };
+        const clientLabels = [];
+        const clientProfitValues = [];
+
+        loans.forEach(loan => {
+            const profit = loan.totalAPagar - loan.valor;
+            const status = getLoanStatus(loan.data);
+
+            totalEmprestado += loan.valor;
+            totalLucro += profit;
+            
+            if (status === 'overdue') {
+                totalAtraso += loan.totalAPagar;
+            }
+
+            statusCounts[status]++;
+            clientLabels.push(loan.nome);
+            clientProfitValues.push(profit);
+        });
+
+        // Update KPI Cards
+        totalEmprestadoEl.textContent = `R$ ${totalEmprestado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+        totalMensalEl.textContent = `R$ ${totalLucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+        totalClientesEl.textContent = loans.length;
+        totalAtrasoEl.textContent = `R$ ${totalAtraso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+        // Update / Create Arrecadação Chart
+        const ctxLoan = document.getElementById('loanChart').getContext('2d');
+        if (loanChart) {
+            loanChart.data.labels = clientLabels;
+            loanChart.data.datasets[0].data = clientProfitValues;
+            loanChart.update();
+        } else {
+            loanChart = new Chart(ctxLoan, {
+                type: 'pie',
+                data: {
+                    labels: clientLabels,
+                    datasets: [{
+                        data: clientProfitValues,
+                        backgroundColor: ['#007bff', '#28a745', '#17a2b8', '#ffc107', '#dc3545', '#6610f2', '#e83e8c', '#fd7e14', '#20c997', '#6f42c1'],
+                        borderWidth: 2,
+                        borderColor: '#1e1e1e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#b0b0b0', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // Update / Create Status Chart
+        const ctxStatus = document.getElementById('statusChart').getContext('2d');
+        const statusData = [statusCounts.overdue, statusCounts.today, statusCounts.upcoming];
+        const statusLabels = ['Atrasado', 'Vence Hoje', 'No Prazo'];
+
+        if (statusChart) {
+            statusChart.data.datasets[0].data = statusData;
+            statusChart.update();
+        } else {
+            statusChart = new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: statusLabels,
+                    datasets: [{
+                        data: statusData,
+                        backgroundColor: ['#dc3545', '#ffc107', '#28a745'],
+                        borderWidth: 2,
+                        borderColor: '#1e1e1e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#b0b0b0', font: { size: 10 } } }
+                    }
+                }
+            });
         }
     }
 
@@ -197,13 +336,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 'NO PRAZO';
     }
 
+    function editLoan(id) {
+        const loan = loans.find(l => l.id == id);
+        if (!loan) return;
+
+        editingLoanId = id;
+        loanForm.nome.value = loan.nome;
+        loanForm.telefone.value = loan.telefone;
+        loanForm.valor.value = loan.valor;
+        loanForm.juros.value = loan.juros;
+        loanForm.tipoJuros.value = loan.tipoJuros;
+        loanForm.cobrado.value = loan.cobrado;
+        loanForm.data.value = loan.data;
+
+        addBtn.textContent = 'Salvar Alterações';
+        addBtn.classList.remove('primary-btn');
+        addBtn.classList.add('success-btn');
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        loanForm.nome.focus();
+    }
+
     window.deleteLoan = deleteLoan;
+    window.editLoan = editLoan;
 
     function clearForm() {
+        editingLoanId = null;
+        addBtn.textContent = 'Adicionar Novo Cliente';
+        addBtn.classList.remove('success-btn');
+        addBtn.classList.add('primary-btn');
+
         loanForm.nome.value = '';
         loanForm.telefone.value = '';
         loanForm.valor.value = '';
         loanForm.juros.value = '';
+        loanForm.cobrado.value = '';
         loanForm.data.value = '';
         loanForm.nome.focus();
     }
