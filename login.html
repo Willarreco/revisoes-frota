@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - WAEMPRESTIMO Cloud</title>
+    <title>Login - FleetControl Cloud</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>">
 </head>
 <body class="dark-theme">
     <div class="login-container">
         <div class="login-box">
             <div class="login-header">
-                <img src="logo.png" alt="WAEMPRESTIMO Logo" class="app-logo-small">
-                <h1>WAEMPRESTIMO</h1>
+                <i data-lucide="shield-check" class="app-logo-icon"></i>
+                <h1>FLEET CONTROL</h1>
             </div>
-            <p>Gerenciamento de Empréstimos na Nuvem</p>
+            <p>Gestão e Controle de Frota na Nuvem</p>
             
             <form id="login-form">
                 <div class="input-group">
@@ -36,45 +38,159 @@
     </div>
 
     <style>
+        :root {
+            --bg-color: #0b111e;
+            --sidebar-bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.5);
+            --card-border: rgba(255, 255, 255, 0.05);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger: #ef4444;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
         .login-container {
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: var(--bg-dark);
+            background-color: var(--bg-color);
         }
+
         .login-header {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
         }
-        .app-logo-small {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--primary-blue);
-            box-shadow: 0 0 15px rgba(0, 123, 255, 0.2);
+
+        .app-logo-icon {
+            width: 42px;
+            height: 42px;
+            color: var(--accent-color);
+            filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.4));
         }
+
         .login-box {
-            background-color: var(--card-bg);
+            background-color: var(--sidebar-bg);
             padding: 2.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
             width: 100%;
             max-width: 400px;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .login-box h1 { margin-bottom: 0.5rem; color: var(--primary-blue); }
-        .login-box p { margin-bottom: 2rem; color: var(--text-secondary); font-size: 0.9rem; }
-        .login-actions { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
-        .error-msg { color: #ff4d4d; margin-top: 1rem; font-size: 0.85rem; display: none; }
+
+        .login-box h1 { 
+            margin: 0; 
+            font-size: 1.6rem; 
+            font-weight: 700; 
+            color: var(--text-primary); 
+            letter-spacing: 0.5px;
+        }
+
+        .login-box p { 
+            margin-top: 0.25rem; 
+            margin-bottom: 2rem; 
+            color: var(--text-secondary); 
+            font-size: 0.9rem; 
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            text-align: left;
+            margin-bottom: 1.25rem;
+        }
+
+        .input-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-primary);
+            box-sizing: border-box;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent-color);
+            outline: none;
+        }
+
+        .login-actions { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.75rem; 
+            margin-top: 1.75rem; 
+        }
+
+        .primary-btn {
+            background: var(--accent-color);
+            color: white;
+            padding: 0.8rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .primary-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .nav-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--card-border);
+            padding: 0.8rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .nav-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .error-msg { 
+            color: var(--danger); 
+            margin-top: 1rem; 
+            font-size: 0.85rem; 
+            display: none; 
+        }
     </style>
 
-    <script src="config.js"></script>
-    <script src="auth.js"></script>
+    <script src="config.js?v=2"></script>
+    <script src="auth.js?v=2"></script>
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
 </html>
