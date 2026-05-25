@@ -776,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `
             <html>
             <head>
-                <title>Relatório de Manutenções - FleetControl</title>
+                <title>Relatório de Manutenções - Controle de Frota (STRSAT)</title>
                 <style>
                     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
                     .header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
