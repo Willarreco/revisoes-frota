@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             vehicles = vData.map(v => ({
                 id: v.id,
-                plate: v.placa,
+                plate: (v.placa || '').toUpperCase(),
                 chassi: v.chassi,
                 brand: v.marca,
                 model: v.modelo,
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (addedAny) {
                     const { data: refreshedVData } = await window.supabaseClient.from('veiculos').select('*').order('created_at', { ascending: false });
                     vehicles = refreshedVData.map(v => ({
-                        id: v.id, plate: v.placa, chassi: v.chassi, brand: v.marca,
+                        id: v.id, plate: (v.placa || '').toUpperCase(), chassi: v.chassi, brand: v.marca,
                         model: v.modelo, color: v.cor, year: v.ano, km: v.km_atual,
                         status: v.status, history: []
                     }));
@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activities = mData.map(m => ({
                 id: m.id,
                 vehicle: m.veiculos ? m.veiculos.modelo : 'Desconhecido',
-                plate: m.veiculos ? m.veiculos.placa : '---',
+                plate: m.veiculos ? (m.veiculos.placa || '').toUpperCase() : '---',
                 service: m.servico,
                 date: new Date(m.data).toLocaleDateString('pt-BR'),
                 cost: parseFloat(m.custo),
@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveVehicle(data) {
         const { data: { user } } = await window.supabaseClient.auth.getUser();
         const payload = {
-            placa: data.plate,
+            placa: (data.plate || '').trim().toUpperCase(),
             chassi: data.chassi,
             marca: data.brand,
             modelo: data.model,
@@ -735,6 +735,261 @@ document.addEventListener('DOMContentLoaded', () => {
                              vehicles.map(v => `<option value="${v.plate}">${v.model} - ${v.plate}</option>`).join('');
     };
 
+    // --- INTEGRACAO GEMINI OCR ---
+    const geminiKeyModal = document.getElementById('gemini-key-modal');
+    const processingOverlay = document.getElementById('processing-overlay');
+    const processingStatus = document.getElementById('processing-status');
+    const btnImportQuote = document.getElementById('btn-import-quote');
+    const quoteFileInput = document.getElementById('quote-file-input');
+    
+    // UI Elements for Config Page
+    const geminiKeyInput = document.getElementById('gemini-api-key');
+    const btnSaveApiKey = document.getElementById('btn-save-api-key');
+    const btnRemoveApiKey = document.getElementById('btn-remove-api-key');
+    
+    // UI Elements for Modal
+    const modalKeyInput = document.getElementById('modal-gemini-key-input');
+    const btnSaveModalKey = document.getElementById('btn-save-modal-key');
+
+    // Load API Key from localStorage
+    let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
+
+    // Initialize key inputs if key exists
+    function initGeminiKeyUI() {
+        if (geminiApiKey) {
+            if (geminiKeyInput) geminiKeyInput.value = geminiApiKey;
+            if (btnRemoveApiKey) btnRemoveApiKey.style.display = 'block';
+            if (modalKeyInput) modalKeyInput.value = geminiApiKey;
+        } else {
+            if (geminiKeyInput) geminiKeyInput.value = '';
+            if (btnRemoveApiKey) btnRemoveApiKey.style.display = 'none';
+            if (modalKeyInput) modalKeyInput.value = '';
+        }
+    }
+    initGeminiKeyUI();
+
+    // Event listener for Save on Config page
+    btnSaveApiKey?.addEventListener('click', () => {
+        const key = geminiKeyInput.value.trim().replace(/^["']|["']$/g, '');
+        if (!key) return alert('Por favor, digite uma chave de API válida.');
+        geminiApiKey = key;
+        localStorage.setItem('gemini_api_key', key);
+        initGeminiKeyUI();
+        alert('Chave API do Gemini salva com sucesso!');
+    });
+
+    // Event listener for Clear on Config page
+    btnRemoveApiKey?.addEventListener('click', () => {
+        if (confirm('Deseja remover a chave de API salva?')) {
+            geminiApiKey = '';
+            localStorage.removeItem('gemini_api_key');
+            initGeminiKeyUI();
+        }
+    });
+
+    // Modal close listeners
+    document.querySelectorAll('.close-gemini-modal').forEach(el => {
+        el.addEventListener('click', () => {
+            if (geminiKeyModal) geminiKeyModal.style.display = 'none';
+        });
+    });
+
+    // Save key in Modal and open file selector
+    btnSaveModalKey?.addEventListener('click', () => {
+        const key = modalKeyInput.value.trim().replace(/^["']|["']$/g, '');
+        if (!key) return alert('Por favor, insira uma chave de API.');
+        geminiApiKey = key;
+        localStorage.setItem('gemini_api_key', key);
+        initGeminiKeyUI();
+        if (geminiKeyModal) geminiKeyModal.style.display = 'none';
+        
+        // Open file dialog immediately
+        quoteFileInput.click();
+    });
+
+    // Click on "Ler Orçamento" button
+    btnImportQuote?.addEventListener('click', () => {
+        if (!geminiApiKey) {
+            if (geminiKeyModal) geminiKeyModal.style.display = 'flex';
+        } else {
+            quoteFileInput.click();
+        }
+    });
+
+    // File input change handler (Read Image)
+    quoteFileInput?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Reset file input value so same file can be uploaded again
+        quoteFileInput.value = '';
+
+        try {
+            // Show processing overlay
+            if (processingOverlay) {
+                processingStatus.textContent = 'Carregando imagem...';
+                processingOverlay.style.display = 'flex';
+            }
+
+            // Convert to base64
+            const base64Data = await fileToBase64(file);
+            
+            if (processingOverlay) {
+                processingStatus.textContent = 'Enviando para o Gemini (IA)...';
+            }
+
+            // Request Gemini
+            const result = await scanQuoteWithGemini(base64Data, file.type);
+            
+            // Populate form
+            fillMaintenanceForm(result);
+            
+            if (processingOverlay) processingOverlay.style.display = 'none';
+            alert('Orçamento lido com sucesso! Itens e dados preenchidos no formulário.');
+        } catch (error) {
+            if (processingOverlay) processingOverlay.style.display = 'none';
+            console.error('Erro na leitura do orçamento:', error);
+            alert('Erro ao ler orçamento: ' + error.message);
+        }
+    });
+
+    // Convert file to Base64 (promise based)
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const base64String = reader.result.split(',')[1];
+                resolve(base64String);
+            };
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    // Call Gemini API
+    async function scanQuoteWithGemini(base64Data, mimeType) {
+        const prompt = `Você é um assistente especialista em ler imagens de orçamentos, notas fiscais, ou ordens de serviço de manutenção de veículos.
+Analise a imagem fornecida e extraia as seguintes informações no formato JSON estruturado:
+{
+  "placa": "AAA0A00", // Placa do veículo se encontrada. Limpe formatações, mantenha apenas letras e números (máx 7/8 caracteres). Pode ser no padrão Mercosul (ex: ABC1D23) ou antigo brasileiro (ex: ABC1234).
+  "km": 12345, // KM do veículo no momento da manutenção se encontrada. Apenas números inteiros. Se não encontrar, retorne null.
+  "data": "YYYY-MM-DD", // Data do orçamento se encontrada. Formato ISO YYYY-MM-DD. Se não encontrar, retorne null.
+  "servicos": [
+    { "desc": "Nome do serviço realizado/mão de obra", "price": 123.45 }
+  ],
+  "pecas": [
+    { "desc": "Nome da peça/componente trocado", "price": 12.34 }
+  ]
+}
+Instruções importantes:
+1. Diferencie claramente MÃO DE OBRA / SERVIÇOS de PEÇAS / PRODUTOS. Coloque cada um em sua respectiva lista.
+2. Os preços devem ser números decimais (use ponto para separar os centavos).
+3. Tente identificar a placa do veículo na imagem. Ela costuma estar rotulada como 'Placa', 'Veículo' ou próxima ao modelo.
+4. Retorne APENAS o JSON válido. Não inclua markdown, tags \`\`\`json, ou explicações.`;
+
+        const requestBody = {
+            contents: [
+                {
+                    parts: [
+                        { text: prompt },
+                        {
+                            inlineData: {
+                                mimeType: mimeType || 'image/jpeg',
+                                data: base64Data
+                            }
+                        }
+                    ]
+                }
+            ],
+            generationConfig: {
+                responseMimeType: "application/json"
+            }
+        };
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = errData.error?.message || `Erro HTTP ${response.status}`;
+            throw new Error(`Falha na API do Gemini: ${errMsg}`);
+        }
+
+        const resData = await response.json();
+        const textResponse = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (!textResponse) {
+            throw new Error('A API do Gemini não retornou um conteúdo válido.');
+        }
+
+        try {
+            return JSON.parse(textResponse.trim());
+        } catch (e) {
+            console.error('Erro ao fazer parse do JSON do Gemini:', textResponse);
+            throw new Error('A IA não retornou um JSON válido. Tente enviar outra foto mais legível.');
+        }
+    }
+
+    // Auto fill form fields
+    function fillMaintenanceForm(data) {
+        if (!data) return;
+
+        // 1. Vehicle Selection by Plate
+        if (data.placa) {
+            const cleanExtractPlate = data.placa.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            
+            // Search in vehicles list
+            const matchedVehicle = vehicles.find(v => {
+                const cleanVPlate = v.plate.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                return cleanVPlate === cleanExtractPlate || cleanVPlate.includes(cleanExtractPlate) || cleanExtractPlate.includes(cleanVPlate);
+            });
+
+            if (matchedVehicle) {
+                document.getElementById('maint-vehicle-select').value = matchedVehicle.id;
+            } else {
+                console.warn(`Veículo com a placa ${data.placa} não encontrado no sistema.`);
+            }
+        }
+
+        // 2. KM moment
+        if (data.km) {
+            const kmInput = document.querySelector('#manutencao input[placeholder="0"]');
+            if (kmInput) kmInput.value = data.km;
+        }
+
+        // 3. Date
+        if (data.data) {
+            const dateInput = document.querySelector('#manutencao input[type="date"]');
+            if (dateInput) dateInput.value = data.data;
+        }
+
+        // 4. Services
+        if (Array.isArray(data.servicos)) {
+            currentServices = data.servicos.map(s => ({
+                desc: s.desc || 'Serviço Sem Nome',
+                price: parseFloat(s.price) || 0,
+                isEditing: false
+            }));
+        }
+
+        // 5. Parts
+        if (Array.isArray(data.pecas)) {
+            currentParts = data.pecas.map(p => ({
+                desc: p.desc || 'Peça Sem Nome',
+                price: parseFloat(p.price) || 0,
+                isEditing: false
+            }));
+        }
+
+        // Re-render items in UI
+        renderMaintItems();
+    }
+
     checkAuthAndLoad();
 
     document.getElementById('btn-generate-pdf')?.addEventListener('click', () => {
@@ -949,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('https://posicoesgetrak.astransat.com.br/auth/token', {
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Basic ' + btoa('strsat:123456'),
+                    'Authorization': 'Basic ' + btoa('warreco.sat:123456'),
                     'Content-Type': 'application/json'
                 }
             });

@@ -98,7 +98,17 @@
 
             <!-- MANUTENCAO -->
             <section id="manutencao" class="view-section">
-                <div class="card-header mb-4"><h3 class="card-title">Registro de Manutenção</h3><button class="btn btn-primary" id="save-maintenance"><i data-lucide="save"></i> Finalizar Registro</button></div>
+                <div class="card-header mb-4">
+                    <h3 class="card-title">Registro de Manutenção</h3>
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        <input type="file" id="quote-file-input" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-back" id="btn-import-quote" style="border-color: var(--accent-color); color: var(--text-primary); gap: 0.5rem;">
+                            <i data-lucide="sparkles" style="color: var(--accent-color); width: 16px; height: 16px;"></i>
+                            <span>Ler Orçamento (IA)</span>
+                        </button>
+                        <button class="btn btn-primary" id="save-maintenance"><i data-lucide="save"></i> Finalizar Registro</button>
+                    </div>
+                </div>
                 <div class="card mb-4">
                     <div class="form-row">
                         <div class="form-group"><label>Veículo</label><select class="form-input" id="maint-vehicle-select"></select></div>
@@ -163,6 +173,24 @@
                                 <input type="file" id="custom-bg-upload" accept="image/*" style="display: none;">
                                 <button class="btn btn-back" id="btn-upload-bg"><i data-lucide="upload"></i> Enviar Imagem</button>
                                 <button class="btn btn-back text-danger" id="btn-remove-bg" style="display: none;"><i data-lucide="trash-2"></i> Remover Imagem</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header"><h3 class="card-title">Integrações de Inteligência Artificial</h3></div>
+                    <div class="form-row mt-4">
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label style="margin-bottom: 0.5rem; display: block; font-size: 1.05rem; color: var(--text-primary); font-weight: 600;">Chave de API do Gemini</label>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.4;">
+                                A chave de API do Gemini é necessária para ler e extrair dados automaticamente das fotos de orçamentos.
+                                Você pode criar uma chave gratuita no <a href="https://aistudio.google.com/" target="_blank" style="color: var(--accent-color); text-decoration: underline;">Google AI Studio</a>.
+                            </p>
+                            <div style="display: flex; gap: 1rem; align-items: center; max-width: 600px;">
+                                <input type="password" id="gemini-api-key" class="form-input" placeholder="AIzaSy..." style="flex-grow: 1;">
+                                <button class="btn btn-primary" id="btn-save-api-key" style="flex-shrink: 0;"><i data-lucide="save"></i> Salvar</button>
+                                <button class="btn btn-back text-danger" id="btn-remove-api-key" style="display: none; flex-shrink: 0;"><i data-lucide="trash-2"></i> Limpar</button>
                             </div>
                         </div>
                     </div>
@@ -259,10 +287,49 @@
         </div>
     </div>
 
+    <!-- GEMINI KEY MODAL -->
+    <div id="gemini-key-modal" class="modal">
+        <div class="modal-content card" style="max-width: 500px;">
+            <div class="card-header">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="key" style="color: var(--accent-color);"></i>
+                    <h3 class="card-title">Configurar Chave Gemini</h3>
+                </div>
+                <span class="close-modal close-gemini-modal">&times;</span>
+            </div>
+            
+            <p class="mt-4" style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5;">
+                Para usar o leitor inteligente de orçamentos, configure sua chave API do Gemini.
+                Esta chave fica salva apenas no seu navegador. Obtenha uma chave gratuita no 
+                <a href="https://aistudio.google.com/" target="_blank" style="color: var(--accent-color); text-decoration: underline;">Google AI Studio</a>.
+            </p>
+
+            <div class="form-group mt-4">
+                <label>Chave API do Gemini</label>
+                <input type="password" id="modal-gemini-key-input" class="form-input" placeholder="AIzaSy...">
+            </div>
+
+            <div class="mt-4" style="display: flex; justify-content: flex-end; gap: 1rem;">
+                <button type="button" class="btn btn-back close-gemini-modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-save-modal-key">Salvar e Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROCESSING OVERLAY -->
+    <div id="processing-overlay" class="modal">
+        <div class="modal-content card" style="max-width: 400px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem;">
+            <i data-lucide="loader-2" class="spin-icon" style="animation: spin 1s linear infinite; width: 48px; height: 48px; color: var(--accent-color); margin-bottom: 1.5rem;"></i>
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">Analisando Orçamento</h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.4;">A Inteligência Artificial está lendo o documento...</p>
+            <p id="processing-status" style="color: var(--accent-color); font-size: 0.85rem; margin-top: 1rem; font-weight: 600;">Lendo imagem...</p>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js?v=2"></script>
     <script src="auth.js?v=2"></script>
-    <script src="script_app.js"></script>
+    <script src="script_app.js?v=3"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>
