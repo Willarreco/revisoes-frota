@@ -990,6 +990,101 @@ Instruções importantes:
         renderMaintItems();
     }
 
+    // --- INTEGRACAO OCR VIA WEBHOOK ---
+    const btnOcrWebhook = document.getElementById('btn-ocr-webhook');
+    const webhookFileInput = document.getElementById('webhook-file-input');
+
+    btnOcrWebhook?.addEventListener('click', () => {
+        webhookFileInput.click();
+    });
+
+    webhookFileInput?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        webhookFileInput.value = '';
+
+        try {
+            if (processingOverlay) {
+                processingStatus.textContent = 'Carregando arquivo...';
+                processingOverlay.style.display = 'flex';
+            }
+
+            const base64Data = await fileToBase64(file);
+
+            if (processingOverlay) {
+                processingStatus.textContent = 'Enviando para OCR Webhook...';
+            }
+
+            const result = await scanWithWebhook(base64Data, file.type);
+
+            fillFromWebhook(result);
+
+            if (processingOverlay) processingOverlay.style.display = 'none';
+            alert('Documento processado com sucesso! Dados preenchidos no formulário.');
+        } catch (error) {
+            if (processingOverlay) processingOverlay.style.display = 'none';
+            console.error('Erro no OCR webhook:', error);
+            alert('Erro ao processar documento: ' + error.message);
+        }
+    });
+
+    async function scanWithWebhook(base64Data, mimeType) {
+        const docType = mimeType && mimeType.includes('pdf') ? 'boleto' : 'orcamento';
+
+        const payload = {
+            mimeType: mimeType || 'image/jpeg',
+            base64: base64Data,
+            docType: docType
+        };
+
+        const response = await fetch('https://n8n.novoseguros.com.br/webhook/ocr-documentos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = errData.error?.message || `Erro HTTP ${response.status}`;
+            throw new Error(`Falha no webhook OCR: ${errMsg}`);
+        }
+
+        return await response.json();
+    }
+
+    function fillFromWebhook(data) {
+        if (!data) return;
+
+        currentServices = [];
+        currentParts = [];
+
+        if (data.descricao_servico) {
+            currentServices.push({
+                desc: data.descricao_servico,
+                price: parseFloat(data.valor_servico) || 0,
+                isEditing: false
+            });
+        }
+
+        if (data.descricao_pecas) {
+            currentParts.push({
+                desc: data.descricao_pecas,
+                price: parseFloat(data.valor_pecas) || 0,
+                isEditing: false
+            });
+        }
+
+        if (currentServices.length === 0 && currentParts.length === 0 && data.valor_total) {
+            currentServices.push({
+                desc: 'Serviço (OCR)',
+                price: parseFloat(data.valor_total) || 0,
+                isEditing: false
+            });
+        }
+
+        renderMaintItems();
+    }
+
     checkAuthAndLoad();
 
     document.getElementById('btn-generate-pdf')?.addEventListener('click', () => {
