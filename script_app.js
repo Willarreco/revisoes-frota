@@ -1043,13 +1043,24 @@ Instruções importantes:
             body: JSON.stringify(payload)
         });
 
+        const text = await response.text();
+
         if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
+            let errData = {};
+            try { errData = text ? JSON.parse(text) : {}; } catch {}
             const errMsg = errData.error?.message || `Erro HTTP ${response.status}`;
             throw new Error(`Falha no webhook OCR: ${errMsg}`);
         }
 
-        return await response.json();
+        if (!text) {
+            throw new Error('O webhook OCR retornou uma resposta vazia.');
+        }
+
+        try {
+            return JSON.parse(text);
+        } catch {
+            throw new Error('O webhook OCR retornou uma resposta inválida.');
+        }
     }
 
     function fillFromWebhook(data) {
