@@ -178,8 +178,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Dashboard shortcuts
-    document.querySelectorAll('.stat-card').forEach(card => {
+    // Back buttons (data-target)
+    document.querySelectorAll('.btn-back[data-target]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-target');
+            if (target) navigateTo(target);
+        });
+    });
+
+    // Dashboard stat shortcuts (only in #dashboard section)
+    document.querySelectorAll('#dashboard .stat-card').forEach(card => {
         card.addEventListener('click', () => navigateTo('veiculos'));
     });
 
@@ -409,8 +417,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.deleteVehicle = async (id) => {
-        if (confirm('Excluir este veículo e todo seu histórico?')) {
+        if (confirm('Excluir este veículo e todo seu histórico de manutenções?')) {
             try {
+                const { error: maintError } = await window.supabaseClient
+                    .from('manutencoes')
+                    .delete()
+                    .eq('veiculo_id', id);
+                if (maintError) throw maintError;
+
                 const { error } = await window.supabaseClient
                     .from('veiculos')
                     .delete()
@@ -722,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     document.querySelector('.search-box input')?.addEventListener('input', (e) => renderVehicles(e.target.value));
-    document.querySelector('#manutencao input[type="date"]').valueAsDate = new Date();
+    document.querySelector('#manutencao input[type="date"]')?.valueAsDate = new Date();
     
     window.updateVehicleSelect = () => {
         const s = document.getElementById('maint-vehicle-select');
@@ -1187,11 +1201,20 @@ Instruções importantes:
         printWindow.document.close();
     }
 
-    document.getElementById('btn-reset-system')?.addEventListener('click', (e) => {
+    document.getElementById('btn-reset-system')?.addEventListener('click', async (e) => {
         e.preventDefault();
         if (confirm('ATENÇÃO: Isso apagará TODOS os veículos e manutenções permanentemente. Deseja continuar?')) {
-            localStorage.clear();
-            location.reload();
+            try {
+                const { data: { user } } = await window.supabaseClient.auth.getUser();
+                if (user) {
+                    await window.supabaseClient.from('manutencoes').delete().neq('id', 0);
+                    await window.supabaseClient.from('veiculos').delete().neq('id', 0);
+                }
+                localStorage.clear();
+                location.reload();
+            } catch (error) {
+                alert('Erro ao resetar dados: ' + error.message);
+            }
         }
     });
 
@@ -1401,7 +1424,11 @@ Instruções importantes:
             }
 
             const mapsBtn = document.getElementById('loc-maps-btn');
-            mapsBtn.href = `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`;
+            const mapLat = loc.lat;
+            const mapLon = loc.lng || loc.lon;
+            if (mapLat && mapLon) {
+                mapsBtn.href = `https://www.google.com/maps/search/?api=1&query=${mapLat},${mapLon}`;
+            }
             
             loading.style.display = 'none';
             dataContainer.style.display = 'block';
