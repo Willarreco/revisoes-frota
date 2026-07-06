@@ -342,6 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Render Functions
+    let currentStatusFilter = 'todos';
+
     window.renderVehicles = (filterText = '') => {
         const vehicleTable = document.getElementById('vehicles-list');
         if (!vehicleTable) return;
@@ -379,9 +381,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const filtered = vehicles.filter(v => {
             const m = v.model || ''; const p = v.plate || ''; const b = v.brand || '';
-            return m.toLowerCase().includes(filterText.toLowerCase()) || 
-                   p.toLowerCase().includes(filterText.toLowerCase()) ||
-                   b.toLowerCase().includes(filterText.toLowerCase());
+            const matchesText = m.toLowerCase().includes(filterText.toLowerCase()) || 
+                                p.toLowerCase().includes(filterText.toLowerCase()) ||
+                                b.toLowerCase().includes(filterText.toLowerCase());
+            const matchesStatus = currentStatusFilter === 'todos' || v.status === currentStatusFilter;
+            return matchesText && matchesStatus;
         });
 
         vehicleTable.innerHTML = filtered.length === 0 ? 
@@ -396,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${v.model}</td>
                 <td>${v.year}</td>
                 <td>${v.km.toLocaleString()} km</td>
-                <td><span class="badge ${v.status === 'Ativo' ? 'badge-active' : 'badge-maintenance'}">${v.status}</span></td>
+                <td><span class="badge ${v.status === 'Ativo' ? 'badge-active' : v.status === 'Inativo' ? 'badge-inactive' : 'badge-maintenance'}">${v.status}</span></td>
                 <td>
                     <div style="display: flex; gap: 0.5rem;">
                         <button class="btn-icon" title="Localização" onclick="event.stopPropagation(); window.openLocationModal('${v.plate}', '${v.model}')"><i data-lucide="map-pin" style="color: var(--accent-color);"></i></button>
@@ -737,6 +741,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial load
     document.querySelector('.search-box input')?.addEventListener('input', (e) => renderVehicles(e.target.value));
     document.querySelector('#manutencao input[type="date"]')?.valueAsDate = new Date();
+
+    document.querySelectorAll('.status-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.status-filter').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentStatusFilter = btn.getAttribute('data-status');
+            const searchText = document.querySelector('.search-box input')?.value || '';
+            renderVehicles(searchText);
+        });
+    });
     
     window.updateVehicleSelect = () => {
         const s = document.getElementById('maint-vehicle-select');
