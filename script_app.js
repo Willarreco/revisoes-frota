@@ -400,8 +400,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>
                     <div style="display: flex; gap: 0.5rem;">
                         <button class="btn-icon" title="Localização" onclick="event.stopPropagation(); window.openLocationModal('${v.plate}', '${v.model}')"><i data-lucide="map-pin" style="color: var(--accent-color);"></i></button>
-                        <button class="btn-icon" title="Editar" onclick="event.stopPropagation(); findAndEditVehicle(${v.id})"><i data-lucide="edit-2" class="text-primary"></i></button>
-                        <button class="btn-icon" title="Excluir" onclick="event.stopPropagation(); deleteVehicle(${v.id})"><i data-lucide="trash-2" class="text-danger"></i></button>
+                        <button class="btn-icon" title="Editar" onclick="event.stopPropagation(); window.findAndEditVehicle(${v.id})"><i data-lucide="edit-2" class="text-primary"></i></button>
+                        <button class="btn-icon" title="Excluir" onclick="event.stopPropagation(); window.deleteVehicle(${v.id})"><i data-lucide="trash-2" class="text-danger"></i></button>
                     </div>
                 </td>
             `;
@@ -419,11 +419,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteVehicle = async (id) => {
         if (confirm('Excluir este veículo e todo seu histórico de manutenções?')) {
             try {
-                const { error: maintError } = await window.supabaseClient
-                    .from('manutencoes')
-                    .delete()
-                    .eq('veiculo_id', id);
-                if (maintError) throw maintError;
+                try {
+                    await window.supabaseClient.from('manutencoes').delete().eq('veiculo_id', id);
+                } catch (_e) {
+                    /* if maintenance delete fails, still try to delete the vehicle */
+                }
 
                 const { error } = await window.supabaseClient
                     .from('veiculos')
