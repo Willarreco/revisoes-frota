@@ -169,6 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
             viewTitle.textContent = item.querySelector('span').textContent;
         }
         window.scrollTo(0, 0);
+
+        if (viewId === 'inativos') renderInativos();
+        if (viewId === 'veiculos') renderVehicles(document.querySelector('.search-box input')?.value || '');
     }
 
     navItems.forEach(item => {
@@ -763,6 +766,46 @@ document.addEventListener('DOMContentLoaded', () => {
             renderVehicles(searchText);
         });
     });
+
+    // --- INATIVOS VIEW ---
+    window.renderInativos = (filterText = '') => {
+        const table = document.getElementById('inativos-list');
+        if (!table) return;
+
+        const filtered = vehicles.filter(v => {
+            if (v.status !== 'Inativo') return false;
+            if (!filterText) return true;
+            const m = v.model || ''; const p = v.plate || ''; const b = v.brand || '';
+            return m.toLowerCase().includes(filterText.toLowerCase()) ||
+                   p.toLowerCase().includes(filterText.toLowerCase()) ||
+                   b.toLowerCase().includes(filterText.toLowerCase());
+        });
+
+        table.innerHTML = filtered.length === 0
+            ? '<tr><td colspan="7" style="text-align: center; padding: 2rem;">Nenhum veículo inativo encontrado.</td></tr>' : '';
+
+        filtered.forEach(v => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="font-weight: 700; color: var(--primary);">${v.plate}</td>
+                <td>${v.brand}</td>
+                <td>${v.model}</td>
+                <td>${v.year}</td>
+                <td>${v.km.toLocaleString()} km</td>
+                <td><span class="badge badge-inactive">Inativo</span></td>
+                <td>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn-icon" title="Reativar" onclick="event.stopPropagation(); window.reactivateVehicle(${v.id})"><i data-lucide="rotate-ccw" style="color: var(--success);"></i></button>
+                    </div>
+                </td>`;
+            table.appendChild(row);
+        });
+        if (window.lucide) lucide.createIcons();
+    };
+
+    document.getElementById('search-inativos')?.addEventListener('input', (e) => renderInativos(e.target.value));
+
+
     
     window.updateVehicleSelect = () => {
         const s = document.getElementById('maint-vehicle-select');

@@ -20,6 +20,7 @@
             <li class="nav-item" data-view="veiculos"><a href="#" class="nav-link"><i data-lucide="truck"></i><span>Veículos</span></a></li>
             <li class="nav-item" data-view="manutencao"><a href="#" class="nav-link"><i data-lucide="wrench"></i><span>Manutenções</span></a></li>
             <li class="nav-item" data-view="relatorios"><a href="#" class="nav-link"><i data-lucide="bar-chart-3"></i><span>Relatórios</span></a></li>
+            <li class="nav-item" data-view="inativos"><a href="#" class="nav-link"><i data-lucide="archive"></i><span>Inativos</span></a></li>
             <li class="nav-item" data-view="config"><a href="#" class="nav-link"><i data-lucide="settings"></i><span>Configurações</span></a></li>
         </ul>
         <div class="nav-item" style="margin-top: auto; display: flex; flex-direction: column; gap: 0.5rem;">
@@ -80,6 +81,15 @@
                     </div>
                 </div>
                 <div class="card"><div class="table-container"><table><thead><tr><th>Placa</th><th>Marca</th><th>Modelo</th><th>Ano</th><th>KM Atual</th><th>Status</th><th>Ações</th></tr></thead><tbody id="vehicles-list"></tbody></table></div></div>
+            </section>
+
+            <!-- INATIVOS -->
+            <section id="inativos" class="view-section">
+                <div class="card-header mb-4">
+                    <h3 class="card-title">Veículos Inativos</h3>
+                    <div class="search-box"><input type="text" placeholder="Buscar por placa ou modelo..." class="form-input" id="search-inativos"></div>
+                </div>
+                <div class="card"><div class="table-container"><table><thead><tr><th>Placa</th><th>Marca</th><th>Modelo</th><th>Ano</th><th>KM Atual</th><th>Status</th><th>Ações</th></tr></thead><tbody id="inativos-list"></tbody></table></div></div>
             </section>
 
             <!-- DETALHES -->
