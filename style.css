@@ -169,6 +169,36 @@ header {
     font-weight: 600;
 }
 
+.view-toggle {
+    display: flex;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.view-toggle .toggle-btn {
+    padding: 0.4rem 1rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.view-toggle .toggle-btn.active {
+    background: var(--accent-color);
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.view-toggle .toggle-btn:hover:not(.active) {
+    color: var(--text-primary);
+}
+
 .user-profile {
     display: flex;
     align-items: center;
@@ -375,10 +405,7 @@ tr:last-child td {
 .badge-inactive { background: rgba(100, 116, 139, 0.1); color: var(--text-secondary); }
 .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
 
-#vehicle-tabs .tab-btn {
-    flex: 1;
-    text-align: center;
-}
+
 
 /* Buttons */
 .btn {

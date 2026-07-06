@@ -170,8 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         window.scrollTo(0, 0);
 
-        if (viewId === 'inativos') renderInativos();
-        if (viewId === 'veiculos') renderVehicles(document.querySelector('.search-box input')?.value || '');
+        if (viewId === 'veiculos') renderVehicles(document.getElementById('search-veiculos')?.value || '');
     }
 
     navItems.forEach(item => {
@@ -345,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Render Functions
-    let currentStatusFilter = 'todos';
+    let currentViewMode = 'ativos';
 
     window.renderVehicles = (filterText = '') => {
         const vehicleTable = document.getElementById('vehicles-list');
@@ -387,12 +386,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const matchesText = m.toLowerCase().includes(filterText.toLowerCase()) || 
                                 p.toLowerCase().includes(filterText.toLowerCase()) ||
                                 b.toLowerCase().includes(filterText.toLowerCase());
-            const matchesStatus = currentStatusFilter === 'todos' || v.status === currentStatusFilter;
+            const matchesStatus = currentViewMode === 'ativos'
+                ? v.status !== 'Inativo'
+                : v.status === 'Inativo';
             return matchesText && matchesStatus;
         });
 
         vehicleTable.innerHTML = filtered.length === 0 ? 
-            '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Nenhum veículo encontrado.</td></tr>' : '';
+            '<tr><td colspan="7" style="text-align: center; padding: 2rem;">Nenhum veículo encontrado.</td></tr>' : '';
 
         filtered.forEach(v => {
             const row = document.createElement('tr');
@@ -450,6 +451,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     .eq('id', id);
                 if (error) throw error;
                 await fetchInitialData();
+
+                document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.toggle-btn[data-mode="ativos"]')?.classList.add('active');
+                currentViewMode = 'ativos';
+                renderVehicles(document.getElementById('search-veiculos')?.value || '');
             } catch (error) {
                 alert('Erro ao reativar veículo: ' + error.message);
             }
@@ -754,56 +760,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initial load
-    document.querySelector('.search-box input')?.addEventListener('input', (e) => renderVehicles(e.target.value));
+    document.getElementById('search-veiculos')?.addEventListener('input', (e) => renderVehicles(e.target.value));
     document.querySelector('#manutencao input[type="date"]')?.valueAsDate = new Date();
 
-    document.querySelectorAll('.status-filter').forEach(btn => {
+    // --- VIEW TOGGLE (Ativos / Inativos) ---
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.status-filter').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            currentStatusFilter = btn.getAttribute('data-status');
-            const searchText = document.querySelector('.search-box input')?.value || '';
-            renderVehicles(searchText);
+            currentViewMode = btn.getAttribute('data-mode');
+            renderVehicles(document.getElementById('search-veiculos')?.value || '');
+            navigateTo('veiculos');
         });
     });
-
-    // --- INATIVOS VIEW ---
-    window.renderInativos = (filterText = '') => {
-        const table = document.getElementById('inativos-list');
-        if (!table) return;
-
-        const filtered = vehicles.filter(v => {
-            if (v.status !== 'Inativo') return false;
-            if (!filterText) return true;
-            const m = v.model || ''; const p = v.plate || ''; const b = v.brand || '';
-            return m.toLowerCase().includes(filterText.toLowerCase()) ||
-                   p.toLowerCase().includes(filterText.toLowerCase()) ||
-                   b.toLowerCase().includes(filterText.toLowerCase());
-        });
-
-        table.innerHTML = filtered.length === 0
-            ? '<tr><td colspan="7" style="text-align: center; padding: 2rem;">Nenhum veículo inativo encontrado.</td></tr>' : '';
-
-        filtered.forEach(v => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td style="font-weight: 700; color: var(--primary);">${v.plate}</td>
-                <td>${v.brand}</td>
-                <td>${v.model}</td>
-                <td>${v.year}</td>
-                <td>${v.km.toLocaleString()} km</td>
-                <td><span class="badge badge-inactive">Inativo</span></td>
-                <td>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn-icon" title="Reativar" onclick="event.stopPropagation(); window.reactivateVehicle(${v.id})"><i data-lucide="rotate-ccw" style="color: var(--success);"></i></button>
-                    </div>
-                </td>`;
-            table.appendChild(row);
-        });
-        if (window.lucide) lucide.createIcons();
-    };
-
-    document.getElementById('search-inativos')?.addEventListener('input', (e) => renderInativos(e.target.value));
 
 
     

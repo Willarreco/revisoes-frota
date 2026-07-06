@@ -20,7 +20,6 @@
             <li class="nav-item" data-view="veiculos"><a href="#" class="nav-link"><i data-lucide="truck"></i><span>Veículos</span></a></li>
             <li class="nav-item" data-view="manutencao"><a href="#" class="nav-link"><i data-lucide="wrench"></i><span>Manutenções</span></a></li>
             <li class="nav-item" data-view="relatorios"><a href="#" class="nav-link"><i data-lucide="bar-chart-3"></i><span>Relatórios</span></a></li>
-            <li class="nav-item" data-view="inativos"><a href="#" class="nav-link"><i data-lucide="archive"></i><span>Inativos</span></a></li>
             <li class="nav-item" data-view="config"><a href="#" class="nav-link"><i data-lucide="settings"></i><span>Configurações</span></a></li>
         </ul>
         <div class="nav-item" style="margin-top: auto; display: flex; flex-direction: column; gap: 0.5rem;">
@@ -37,7 +36,13 @@
 
     <main class="main-content">
         <header>
-            <div class="page-title"><h1 id="view-title">Dashboard</h1></div>
+            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                <div class="page-title"><h1 id="view-title">Dashboard</h1></div>
+                <div class="view-toggle" id="view-toggle">
+                    <button class="toggle-btn active" data-mode="ativos">Ativos</button>
+                    <button class="toggle-btn" data-mode="inativos">Inativos</button>
+                </div>
+            </div>
             <div class="user-profile">
                 <div class="user-info"><span class="user-name">Administrador</span><span class="user-role">admin@empresa.com</span></div>
                 <div class="avatar">AD</div>
@@ -68,28 +73,11 @@
                 <div class="card-header mb-4">
                     <h3 class="card-title">Frota de Veículos</h3>
                     <div style="display: flex; gap: 1rem;">
-                        <div class="search-box"><input type="text" placeholder="Buscar por placa ou modelo..." class="form-input"></div>
+                        <div class="search-box"><input type="text" placeholder="Buscar por placa ou modelo..." class="form-input" id="search-veiculos"></div>
                         <button class="btn btn-primary" id="btn-new-vehicle"><i data-lucide="plus"></i> Novo Veículo</button>
                     </div>
                 </div>
-                <div class="card mb-4">
-                    <div class="tabs" id="vehicle-tabs">
-                        <button class="tab-btn status-filter active" data-status="todos">Todos</button>
-                        <button class="tab-btn status-filter" data-status="Ativo">Ativos</button>
-                        <button class="tab-btn status-filter" data-status="Em Manutenção">Em Manutenção</button>
-                        <button class="tab-btn status-filter" data-status="Inativo">Inativos</button>
-                    </div>
-                </div>
-                <div class="card"><div class="table-container"><table><thead><tr><th>Placa</th><th>Marca</th><th>Modelo</th><th>Ano</th><th>KM Atual</th><th>Status</th><th>Ações</th></tr></thead><tbody id="vehicles-list"></tbody></table></div></div>
-            </section>
-
-            <!-- INATIVOS -->
-            <section id="inativos" class="view-section">
-                <div class="card-header mb-4">
-                    <h3 class="card-title">Veículos Inativos</h3>
-                    <div class="search-box"><input type="text" placeholder="Buscar por placa ou modelo..." class="form-input" id="search-inativos"></div>
-                </div>
-                <div class="card"><div class="table-container"><table><thead><tr><th>Placa</th><th>Marca</th><th>Modelo</th><th>Ano</th><th>KM Atual</th><th>Status</th><th>Ações</th></tr></thead><tbody id="inativos-list"></tbody></table></div></div>
+                <div class="card" id="vehicle-list-card"><div class="table-container"><table><thead><tr><th>Placa</th><th>Marca</th><th>Modelo</th><th>Ano</th><th>KM Atual</th><th>Status</th><th>Ações</th></tr></thead><tbody id="vehicles-list"></tbody></table></div></div>
             </section>
 
             <!-- DETALHES -->
