@@ -66,15 +66,17 @@
             <section id="veiculos" class="view-section">
                 <div class="card-header mb-4">
                     <h3 class="card-title">Frota de Veículos</h3>
-                    <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div style="display: flex; gap: 1rem;">
                         <div class="search-box"><input type="text" placeholder="Buscar por placa ou modelo..." class="form-input"></div>
-                        <div class="status-filters" style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-sm status-filter active" data-status="todos">Todos</button>
-                            <button class="btn btn-sm status-filter" data-status="Ativo">Ativos</button>
-                            <button class="btn btn-sm status-filter" data-status="Em Manutenção">Em Manutenção</button>
-                            <button class="btn btn-sm status-filter" data-status="Inativo">Inativos</button>
-                        </div>
                         <button class="btn btn-primary" id="btn-new-vehicle"><i data-lucide="plus"></i> Novo Veículo</button>
+                    </div>
+                </div>
+                <div class="card mb-4">
+                    <div class="tabs" id="vehicle-tabs">
+                        <button class="tab-btn status-filter active" data-status="todos">Todos</button>
+                        <button class="tab-btn status-filter" data-status="Ativo">Ativos</button>
+                        <button class="tab-btn status-filter" data-status="Em Manutenção">Em Manutenção</button>
+                        <button class="tab-btn status-filter" data-status="Inativo">Inativos</button>
                     </div>
                 </div>
                 <div class="card"><div class="table-container"><table><thead><tr><th>Placa</th><th>Marca</th><th>Modelo</th><th>Ano</th><th>KM Atual</th><th>Status</th><th>Ações</th></tr></thead><tbody id="vehicles-list"></tbody></table></div></div>

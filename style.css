@@ -375,24 +375,9 @@ tr:last-child td {
 .badge-inactive { background: rgba(100, 116, 139, 0.1); color: var(--text-secondary); }
 .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
 
-.status-filters .btn-sm {
-    font-size: 0.8rem;
-    padding: 0.35rem 0.8rem;
-    border-radius: 8px;
-    border: 1px solid var(--card-border);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.status-filters .btn-sm:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.05);
-}
-.status-filters .btn-sm.active {
-    background: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
+#vehicle-tabs .tab-btn {
+    flex: 1;
+    text-align: center;
 }
 
 /* Buttons */
