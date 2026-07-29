@@ -1,4 +1,4 @@
-let costsChart, typeChart;
+let costsChart, typeChart, guinchoCostsChart, guinchoTypeChart;
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- THEME & COLORS ---
@@ -404,14 +404,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${v.model}</td>
                 <td>${v.year}</td>
                 <td>${v.km.toLocaleString()} km</td>
-                <td><span class="badge ${v.status === 'Ativo' ? 'badge-active' : v.status === 'Inativo' ? 'badge-inactive' : 'badge-maintenance'}">${v.status}</span></td>
+                <td><span class="badge ${v.status === 'Ativo' ? 'badge-active' : v.status === 'Inativo' ? 'badge-inactive' : 'badge-maintenance'}" style="cursor:pointer" onclick="event.stopPropagation(); showVehicleDetails(vehicles.find(x=>x.id==='${v.id}'))">${v.status}</span></td>
                 <td>
                     <div style="display: flex; gap: 0.5rem;">
                         <button class="btn-icon" title="Localização" onclick="event.stopPropagation(); window.openLocationModal('${v.plate}', '${v.model}')"><i data-lucide="map-pin" style="color: var(--accent-color);"></i></button>
-                        <button class="btn-icon" title="Editar" onclick="event.stopPropagation(); window.findAndEditVehicle(${v.id})"><i data-lucide="edit-2" class="text-primary"></i></button>
+                        <button class="btn-icon" title="Editar" onclick="event.stopPropagation(); window.findAndEditVehicle('${v.id}')"><i data-lucide="edit-2" class="text-primary"></i></button>
                         ${v.status === 'Inativo'
-                            ? `<button class="btn-icon" title="Reativar" onclick="event.stopPropagation(); window.reactivateVehicle(${v.id})"><i data-lucide="rotate-ccw" style="color: var(--success);"></i></button>`
-                            : `<button class="btn-icon" title="Desativar" onclick="event.stopPropagation(); window.deleteVehicle(${v.id})"><i data-lucide="trash-2" class="text-danger"></i></button>`
+                            ? `<button class="btn-icon" title="Reativar" onclick="event.stopPropagation(); window.reactivateVehicle('${v.id}')"><i data-lucide="rotate-ccw" style="color: var(--success);"></i></button>`
+                            : `<button class="btn-icon" title="Desativar" onclick="event.stopPropagation(); window.deleteVehicle('${v.id}')"><i data-lucide="trash-2" class="text-danger"></i></button>`
                         }
                     </div>
                 </td>
@@ -761,7 +761,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     document.getElementById('search-veiculos')?.addEventListener('input', (e) => renderVehicles(e.target.value));
-    document.querySelector('#manutencao input[type="date"]')?.valueAsDate = new Date();
+    const dateInput = document.querySelector('#manutencao input[type="date"]');
+    if (dateInput) dateInput.valueAsDate = new Date();
 
     // --- VIEW TOGGLE (Ativos / Inativos) ---
     document.querySelectorAll('.toggle-btn').forEach(btn => {
@@ -1042,112 +1043,6 @@ Instruções importantes:
         renderMaintItems();
     }
 
-    // --- INTEGRACAO OCR VIA WEBHOOK ---
-    const btnOcrWebhook = document.getElementById('btn-ocr-webhook');
-    const webhookFileInput = document.getElementById('webhook-file-input');
-
-    btnOcrWebhook?.addEventListener('click', () => {
-        webhookFileInput.click();
-    });
-
-    webhookFileInput?.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        webhookFileInput.value = '';
-
-        try {
-            if (processingOverlay) {
-                processingStatus.textContent = 'Carregando arquivo...';
-                processingOverlay.style.display = 'flex';
-            }
-
-            const base64Data = await fileToBase64(file);
-
-            if (processingOverlay) {
-                processingStatus.textContent = 'Enviando para OCR Webhook...';
-            }
-
-            const result = await scanWithWebhook(base64Data, file.type);
-
-            fillFromWebhook(result);
-
-            if (processingOverlay) processingOverlay.style.display = 'none';
-            alert('Documento processado com sucesso! Dados preenchidos no formulário.');
-        } catch (error) {
-            if (processingOverlay) processingOverlay.style.display = 'none';
-            console.error('Erro no OCR webhook:', error);
-            alert('Erro ao processar documento: ' + error.message);
-        }
-    });
-
-    async function scanWithWebhook(base64Data, mimeType) {
-        const docType = mimeType && mimeType.includes('pdf') ? 'boleto' : 'orcamento';
-
-        const payload = {
-            mimeType: mimeType || 'image/jpeg',
-            base64: base64Data,
-            docType: docType
-        };
-
-        const response = await fetch('https://n8n.novoseguros.com.br/webhook/ocr-documentos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const text = await response.text();
-
-        if (!response.ok) {
-            let errData = {};
-            try { errData = text ? JSON.parse(text) : {}; } catch {}
-            const errMsg = errData.error?.message || `Erro HTTP ${response.status}`;
-            throw new Error(`Falha no webhook OCR: ${errMsg}`);
-        }
-
-        if (!text) {
-            throw new Error('O webhook OCR retornou uma resposta vazia.');
-        }
-
-        try {
-            return JSON.parse(text);
-        } catch {
-            throw new Error('O webhook OCR retornou uma resposta inválida.');
-        }
-    }
-
-    function fillFromWebhook(data) {
-        if (!data) return;
-
-        currentServices = [];
-        currentParts = [];
-
-        if (data.descricao_servico) {
-            currentServices.push({
-                desc: data.descricao_servico,
-                price: parseFloat(data.valor_servico) || 0,
-                isEditing: false
-            });
-        }
-
-        if (data.descricao_pecas) {
-            currentParts.push({
-                desc: data.descricao_pecas,
-                price: parseFloat(data.valor_pecas) || 0,
-                isEditing: false
-            });
-        }
-
-        if (currentServices.length === 0 && currentParts.length === 0 && data.valor_total) {
-            currentServices.push({
-                desc: 'Serviço (OCR)',
-                price: parseFloat(data.valor_total) || 0,
-                isEditing: false
-            });
-        }
-
-        renderMaintItems();
-    }
-
     checkAuthAndLoad();
 
     document.getElementById('btn-generate-pdf')?.addEventListener('click', () => {
@@ -1239,23 +1134,6 @@ Instruções importantes:
         printWindow.document.close();
     }
 
-    document.getElementById('btn-reset-system')?.addEventListener('click', async (e) => {
-        e.preventDefault();
-        if (confirm('ATENÇÃO: Isso apagará TODOS os veículos e manutenções permanentemente. Deseja continuar?')) {
-            try {
-                const { data: { user } } = await window.supabaseClient.auth.getUser();
-                if (user) {
-                    await window.supabaseClient.from('manutencoes').delete().neq('id', 0);
-                    await window.supabaseClient.from('veiculos').delete().neq('id', 0);
-                }
-                localStorage.clear();
-                location.reload();
-            } catch (error) {
-                alert('Erro ao resetar dados: ' + error.message);
-            }
-        }
-    });
-
     function updateCharts() {
         const costsCtx = document.getElementById('costsChart');
         const typeCtx = document.getElementById('typeChart');
@@ -1340,7 +1218,80 @@ Instruções importantes:
         });
     }
 
-    function showVehicleDetails(v) {
+    function updateGuinchoCharts() {
+        const costsCtx = document.getElementById('guinchoCostsChart');
+        const typeCtx = document.getElementById('guinchoTypeChart');
+        if (!costsCtx || !typeCtx) return;
+
+        const monthly = new Array(12).fill(0);
+        let totalFinalizado = 0, totalAndamento = 0;
+
+        guinchoServices.forEach(s => {
+            if (s.data_inicio) {
+                const d = new Date(s.data_inicio);
+                const month = d.getMonth();
+                monthly[month] += parseFloat(s.valor_cobrado) || 0;
+            }
+            if (s.status === 'Finalizado') totalFinalizado += parseFloat(s.valor_cobrado) || 0;
+            else totalAndamento += parseFloat(s.valor_cobrado) || 0;
+        });
+
+        if (guinchoCostsChart) guinchoCostsChart.destroy();
+        guinchoCostsChart = new Chart(costsCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+                datasets: [{
+                    label:'Faturamento R$',
+                    data: monthly,
+                    backgroundColor: 'rgba(139, 92, 246, 0.6)',
+                    borderColor: '#8b5cf6',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => `R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#94a3b8', callback: (v) => 'R$ ' + v.toLocaleString() }
+                    },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+
+        if (guinchoTypeChart) guinchoTypeChart.destroy();
+        const hasData = totalFinalizado > 0 || totalAndamento > 0;
+        guinchoTypeChart = new Chart(typeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: hasData ? ['Finalizados', 'Em Andamento'] : ['Sem dados'],
+                datasets: [{
+                    data: hasData ? [totalFinalizado, totalAndamento] : [1],
+                    backgroundColor: hasData ? ['#10b981', '#f59e0b'] : ['#1e293b'],
+                    borderWidth: 0,
+                    hoverOffset: hasData ? 10 : 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 15, font: { size: 11 } } } },
+                cutout: '70%'
+            }
+        });
+    }
+
+    window.showVehicleDetails = (v) => {
+        if (!v) return;
         document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
         document.getElementById('detalhes-veiculo').classList.add('active');
         document.getElementById('view-title').textContent = 'Detalhes do Veículo';
@@ -1351,13 +1302,33 @@ Instruções importantes:
         document.getElementById('detail-km').textContent = `${v.km.toLocaleString()} km`;
 
         const history = document.getElementById('vehicle-history');
-        history.innerHTML = (v.history && v.history.length) ? '' : '<p>Sem histórico.</p>';
-        (v.history || []).forEach(h => {
-            history.innerHTML += `<div class="timeline-item">
-                <div style="display:flex; justify-content:space-between;"><strong>${h.service}</strong><span>${h.date}</span></div>
-                <p style="color:var(--text-secondary);">Custo: R$ ${h.cost.toLocaleString('pt-BR',{minimumFractionDigits:2})}</p>
-            </div>`;
-        });
+        const hData = v.history || [];
+        if (hData.length === 0) {
+            history.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhum registro de manutenção encontrado para este veículo.</p>';
+        } else {
+            const total = hData.reduce((s, h) => s + (h.cost || 0), 0);
+            history.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem;border-bottom:1px solid var(--border-color);margin-bottom:1rem">
+                    <span style="font-weight:600">${hData.length} registro(s)</span>
+                    <span style="font-weight:700;color:var(--accent-color)">Total gasto: R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+                </div>
+                <table style="width:100%;border-collapse:collapse">
+                    <thead><tr style="border-bottom:1px solid var(--border-color)">
+                        <th style="text-align:left;padding:0.5rem">Data</th>
+                        <th style="text-align:left;padding:0.5rem">Serviço</th>
+                        <th style="text-align:left;padding:0.5rem">KM</th>
+                        <th style="text-align:right;padding:0.5rem">Custo</th>
+                    </tr></thead>
+                    <tbody>${hData.map(h => `
+                        <tr style="border-bottom:1px solid var(--border-color)">
+                            <td style="padding:0.5rem;white-space:nowrap">${h.date}</td>
+                            <td style="padding:0.5rem">${h.service}</td>
+                            <td style="padding:0.5rem">${h.km ? h.km.toLocaleString() + ' km' : '---'}</td>
+                            <td style="padding:0.5rem;text-align:right;font-weight:600">R$ ${h.cost.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+        }
         if (window.lucide) lucide.createIcons();
     }
 
@@ -1481,6 +1452,609 @@ Instruções importantes:
         document.getElementById('location-modal').style.display = 'none';
         const loading = document.getElementById('location-loading');
         if (loading) loading.innerHTML = '<i data-lucide="loader-2" class="spin-icon" style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 1rem; color: var(--accent-color);"></i><p>Buscando comunicação com o satélite...</p>';
+    });
+
+    // ======================== GUINCHO MODULE ========================
+    let guinchoServices = [];
+    let guinchoEditingId = null;
+    let guinchoSortField = 'data_inicio';
+    let guinchoSortAsc = false;
+
+    window.setGuinchoKMMode = (mode) => {
+        document.getElementById('guincho-km-mode-manual').classList.toggle('active', mode === 'manual');
+        document.getElementById('guincho-km-mode-gps').classList.toggle('active', mode === 'gps');
+        document.getElementById('guincho-km-manual').style.display = mode === 'manual' ? 'block' : 'none';
+        document.getElementById('guincho-km-gps').style.display = mode === 'gps' ? 'block' : 'none';
+    };
+
+    window.calcGuinchoKM = () => {
+        const ini = parseFloat(document.getElementById('guincho-km-inicial').value) || 0;
+        const fin = parseFloat(document.getElementById('guincho-km-final').value) || 0;
+        document.getElementById('guincho-km-percorrido').value = fin >= ini ? (fin - ini) : 0;
+    };
+
+    async function fetchGuinchoData() {
+        try {
+            const { data, error } = await window.supabaseClient
+                .from('servicos_guincho')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            guinchoServices = data || [];
+            renderGuinchoTable();
+            updateGuinchoStats();
+        } catch (error) {
+            console.error('Erro ao carregar guincho:', error.message);
+        }
+    }
+
+    function updateGuinchoStats() {
+        const andamento = guinchoServices.filter(s => s.status === 'Em Serviço').length;
+        const finalizados = guinchoServices.filter(s => s.status === 'Finalizado').length;
+        const kmTotal = guinchoServices.reduce((s, x) => s + (parseFloat(x.km_percorrido) || 0), 0);
+        const valorTotal = guinchoServices.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+
+        document.getElementById('stat-guincho-andamento').textContent = andamento;
+        document.getElementById('stat-guincho-finalizados').textContent = finalizados;
+        document.getElementById('stat-guincho-km').textContent = `${kmTotal.toLocaleString()} km`;
+        document.getElementById('stat-guincho-valor').textContent = `R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+        // Dashboard stats (monthly)
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthServices = guinchoServices.filter(s => new Date(s.data_inicio) >= monthStart);
+        const monthFinalizados = monthServices.filter(s => s.status === 'Finalizado').length;
+        const monthKm = monthServices.reduce((s, x) => s + (parseFloat(x.km_percorrido) || 0), 0);
+        const monthValor = monthServices.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+
+        document.getElementById('stat-dash-guincho-andamento').textContent = andamento;
+        document.getElementById('stat-dash-guincho-finalizados').textContent = monthFinalizados;
+        document.getElementById('stat-dash-guincho-km').textContent = `${monthKm.toLocaleString()} km`;
+        document.getElementById('stat-dash-guincho-valor').textContent = `R$ ${monthValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+        renderRecentGuincho();
+        updateGuinchoCharts();
+    }
+
+    function renderRecentGuincho() {
+        const tbody = document.getElementById('recent-guincho');
+        if (!tbody) return;
+        const recent = [...guinchoServices].sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio)).slice(0, 10);
+        tbody.innerHTML = recent.length === 0
+            ? '<tr><td colspan="6" style="text-align:center;padding:1rem;color:var(--text-secondary)">Nenhum serviço de guincho.</td></tr>'
+            : '';
+        recent.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="white-space:nowrap">${s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---'}</td>
+                <td style="font-weight:700;color:var(--primary)">${s.placa}</td>
+                <td>${s.motorista || '---'}</td>
+                <td>${parseFloat(s.km_percorrido || 0).toFixed(0)} km</td>
+                <td style="font-weight:700;color:var(--success)">R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                <td><span class="badge ${s.status === 'Finalizado' ? 'badge-active' : 'badge-maintenance'}">${s.status}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function getFilteredGuincho() {
+        const placa = (document.getElementById('filter-guincho-placa').value || '').toUpperCase();
+        const motorista = (document.getElementById('filter-guincho-motorista').value || '').toLowerCase();
+        const status = document.getElementById('filter-guincho-status').value;
+        const inicio = document.getElementById('filter-guincho-inicio').value;
+        const fim = document.getElementById('filter-guincho-fim').value;
+        const search = (document.getElementById('search-guincho').value || '').toLowerCase();
+
+        return guinchoServices.filter(s => {
+            if (placa && !s.placa.toUpperCase().includes(placa)) return false;
+            if (motorista && (!s.motorista || !s.motorista.toLowerCase().includes(motorista))) return false;
+            if (status && s.status !== status) return false;
+            if (search && !s.placa.toLowerCase().includes(search) && (!s.motorista || !s.motorista.toLowerCase().includes(search))) return false;
+            if (inicio) {
+                const d = new Date(s.data_inicio);
+                if (d < new Date(inicio)) return false;
+            }
+            if (fim) {
+                const d = new Date(s.data_inicio);
+                const endDate = new Date(fim);
+                endDate.setDate(endDate.getDate() + 1);
+                if (d > endDate) return false;
+            }
+            return true;
+        });
+    }
+
+    window.sortGuincho = (field) => {
+        if (guinchoSortField === field) guinchoSortAsc = !guinchoSortAsc;
+        else { guinchoSortField = field; guinchoSortAsc = true; }
+        renderGuinchoTable();
+    };
+
+    function renderGuinchoTable() {
+        const tbody = document.getElementById('guincho-list');
+        if (!tbody) return;
+
+        let filtered = getFilteredGuincho();
+        const sorted = [...filtered].sort((a, b) => {
+            let va = a[guinchoSortField] || '';
+            let vb = b[guinchoSortField] || '';
+            if (guinchoSortField === 'data_inicio' || guinchoSortField === 'created_at') {
+                va = new Date(va).getTime();
+                vb = new Date(vb).getTime();
+            } else if (guinchoSortField === 'km_percorrido' || guinchoSortField === 'valor_cobrado') {
+                va = parseFloat(va) || 0;
+                vb = parseFloat(vb) || 0;
+            }
+            return guinchoSortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+        });
+
+        tbody.innerHTML = sorted.length === 0
+            ? '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhum serviço de guincho encontrado.</td></tr>'
+            : '';
+
+        sorted.forEach(s => {
+            const tr = document.createElement('tr');
+            const isFinalizado = s.status === 'Finalizado';
+            const badgeClass = isFinalizado ? 'badge-active' : 'badge-maintenance';
+            const dataInicio = s.data_inicio ? new Date(s.data_inicio).toLocaleString('pt-BR') : '---';
+            const dataFim = s.data_fim ? new Date(s.data_fim).toLocaleString('pt-BR') : '---';
+            const kmPercorrido = parseFloat(s.km_percorrido) || 0;
+
+            tr.innerHTML = `
+                <td style="white-space:nowrap">${dataInicio}</td>
+                <td style="font-weight:700;color:var(--primary)">${s.placa}</td>
+                <td>${s.motorista || '---'}</td>
+                <td>${s.km_inicial ? parseFloat(s.km_inicial).toLocaleString() : '---'}</td>
+                <td>${s.km_final ? parseFloat(s.km_final).toLocaleString() : '---'}</td>
+                <td style="font-weight:600">${kmPercorrido > 0 ? kmPercorrido.toLocaleString() + ' km' : '---'}</td>
+                <td style="font-weight:700;color:var(--success)">R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                <td><span class="badge ${badgeClass}">${s.status}</span></td>
+                <td>
+                    <div style="display:flex;gap:0.3rem">
+                        ${!isFinalizado ? `<button class="btn-icon" title="Finalizar" onclick="finalizarGuincho('${s.id}')"><i data-lucide="check-circle" style="color:var(--success)"></i></button>` : ''}
+                        <button class="btn-icon" title="Editar" onclick="editarGuincho('${s.id}')"><i data-lucide="edit-2" class="text-primary"></i></button>
+                        <button class="btn-icon" title="Excluir" onclick="excluirGuincho('${s.id}')"><i data-lucide="trash-2" class="text-danger"></i></button>
+                        <button class="btn btn-sm btn-back" title="Visualizar" onclick="verDetalhesGuincho('${s.id}')" style="padding:0.25rem 0.6rem;font-size:0.75rem;gap:0.3rem">
+                            <i data-lucide="eye" style="width:14px;height:14px"></i> Visualizar
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function openGuinchoModal(service = null) {
+        guinchoEditingId = service ? service.id : null;
+        document.getElementById('guincho-modal-title').textContent = service ? 'Editar Serviço de Guincho' : 'Novo Serviço de Guincho';
+        document.getElementById('btn-salvar-guincho').textContent = service ? 'Salvar Alterações' : 'Salvar Serviço';
+        document.getElementById('guincho-form').reset();
+        setGuinchoKMMode('manual');
+
+        if (service) {
+            document.getElementById('guincho-placa').value = service.placa || '';
+            document.getElementById('guincho-motorista').value = service.motorista || '';
+            document.getElementById('guincho-valor').value = service.valor_cobrado || '';
+            document.getElementById('guincho-status').value = service.status || 'Em Serviço';
+            document.getElementById('guincho-observacoes').value = service.observacoes || '';
+
+            if (service.data_inicio) {
+                const d = new Date(service.data_inicio);
+                document.getElementById('guincho-data-inicio').value = d.toISOString().slice(0, 16);
+            }
+
+            if (service.km_inicial !== null || service.km_final !== null) {
+                setGuinchoKMMode('manual');
+                document.getElementById('guincho-km-inicial').value = service.km_inicial || '';
+                document.getElementById('guincho-km-final').value = service.km_final || '';
+                document.getElementById('guincho-km-percorrido').value = service.km_percorrido || '';
+            } else if (service.lat_origem !== null) {
+                setGuinchoKMMode('gps');
+                document.getElementById('guincho-lat-origem').value = service.lat_origem || '';
+                document.getElementById('guincho-lng-origem').value = service.lng_origem || '';
+                document.getElementById('guincho-lat-destino').value = service.lat_destino || '';
+                document.getElementById('guincho-lng-destino').value = service.lng_destino || '';
+                document.getElementById('guincho-km-percorrido-gps').value = service.km_percorrido || '';
+            }
+        } else {
+            document.getElementById('guincho-data-inicio').value = new Date().toISOString().slice(0, 16);
+            document.getElementById('guincho-status').value = 'Em Serviço';
+        }
+
+        document.getElementById('guincho-modal').style.display = 'flex';
+    }
+
+    window.editarGuincho = (id) => {
+        const svc = guinchoServices.find(s => s.id === id);
+        if (svc) openGuinchoModal(svc);
+    };
+
+    window.verDetalhesGuincho = (id) => {
+        const s = guinchoServices.find(x => x.id === id);
+        if (!s) return;
+
+        document.getElementById('gd-placa').textContent = s.placa;
+        document.getElementById('gd-motorista').textContent = s.motorista || 'Motorista não informado';
+        document.getElementById('gd-status').textContent = s.status;
+        document.getElementById('gd-status').className = `plate-badge ${s.status === 'Finalizado' ? 'badge-active' : 'badge-maintenance'}`;
+        document.getElementById('gd-data-inicio').textContent = s.data_inicio ? new Date(s.data_inicio).toLocaleString('pt-BR') : '---';
+        document.getElementById('gd-data-fim').textContent = s.data_fim ? new Date(s.data_fim).toLocaleString('pt-BR') : '---';
+        document.getElementById('gd-km-inicial').textContent = s.km_inicial ? parseFloat(s.km_inicial).toLocaleString() : '---';
+        document.getElementById('gd-km-final').textContent = s.km_final ? parseFloat(s.km_final).toLocaleString() : '---';
+        document.getElementById('gd-km-percorrido').textContent = s.km_percorrido ? `${parseFloat(s.km_percorrido).toLocaleString()} km` : '---';
+        document.getElementById('gd-valor').textContent = `R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        document.getElementById('gd-observacoes').textContent = s.observacoes || 'Sem observações.';
+
+        const coordsDiv = document.getElementById('gd-coords');
+        if (s.lat_origem && s.lng_origem) {
+            coordsDiv.style.display = 'block';
+            document.getElementById('gd-coords-text').textContent =
+                `Origem: ${s.lat_origem}, ${s.lng_origem}\nDestino: ${s.lat_destino || '---'}, ${s.lng_destino || '---'}`;
+        } else {
+            coordsDiv.style.display = 'none';
+        }
+
+        document.getElementById('guincho-detalhes-modal').style.display = 'flex';
+    };
+
+    window.finalizarGuincho = async (id) => {
+        if (!confirm('Finalizar este serviço de guincho?')) return;
+        try {
+            const { error } = await window.supabaseClient
+                .from('servicos_guincho')
+                .update({ status: 'Finalizado', data_fim: new Date().toISOString() })
+                .eq('id', id);
+            if (error) throw error;
+            await fetchGuinchoData();
+        } catch (error) {
+            alert('Erro ao finalizar: ' + error.message);
+        }
+    };
+
+    window.excluirGuincho = async (id) => {
+        if (!confirm('Excluir permanentemente este serviço de guincho?')) return;
+        try {
+            const { error } = await window.supabaseClient
+                .from('servicos_guincho')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+            await fetchGuinchoData();
+        } catch (error) {
+            alert('Erro ao excluir: ' + error.message);
+        }
+    };
+
+    async function calcularDistanciaGPS() {
+        const lat1 = parseFloat(document.getElementById('guincho-lat-origem').value);
+        const lng1 = parseFloat(document.getElementById('guincho-lng-origem').value);
+        const lat2 = parseFloat(document.getElementById('guincho-lat-destino').value);
+        const lng2 = parseFloat(document.getElementById('guincho-lng-destino').value);
+
+        if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) {
+            return alert('Preencha todas as coordenadas (latitude e longitude de origem e destino).');
+        }
+
+        // Haversine formula for straight-line distance
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const straightLine = R * c;
+
+        // Try OSRM for actual road distance
+        try {
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false`;
+            const resp = await fetch(osrmUrl);
+            const osrmData = await resp.json();
+            if (osrmData.code === 'Ok' && osrmData.routes && osrmData.routes.length > 0) {
+                const roadKm = osrmData.routes[0].distance / 1000;
+                document.getElementById('guincho-km-percorrido-gps').value = Math.round(roadKm * 10) / 10;
+                alert(`Distância calculada:\n• Rodoviária (rota real): ${roadKm.toFixed(1)} km\n• Linha reta (referência): ${straightLine.toFixed(1)} km\n\nO valor foi preenchido no campo KM Percorrido.`);
+                return;
+            }
+        } catch (e) {
+            // Fallback to straight line
+        }
+
+        document.getElementById('guincho-km-percorrido-gps').value = Math.round(straightLine * 10) / 10;
+        alert(`Distância em linha reta: ${straightLine.toFixed(1)} km\n(API de rota não disponível, use valor aproximado)\n\nO valor foi preenchido no campo KM Percorrido.`);
+    }
+
+    window.gerarPDFGuincho = () => {
+        const filtered = getFilteredGuincho();
+        if (filtered.length === 0) return alert('Nenhum serviço encontrado para gerar PDF.');
+
+        const andamento = filtered.filter(s => s.status === 'Em Serviço').length;
+        const finalizados = filtered.filter(s => s.status === 'Finalizado').length;
+        const kmTotal = filtered.reduce((s, x) => s + (parseFloat(x.km_percorrido) || 0), 0);
+        const valorTotal = filtered.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+
+        const printWin = window.open('', '_blank');
+        let html = `
+            <html><head><title>Relatório Guincho - FROTA STRSAT</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; }
+                .header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
+                h1 { color: #1e293b; margin: 0; font-size: 1.5rem; }
+                .logo { font-size: 2rem; margin-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th { background: #f1f5f9; text-align: left; padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; }
+                td { padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; }
+                .resumo { display: flex; justify-content: space-between; margin-top: 20px; gap: 1rem; }
+                .resumo-item { flex: 1; background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; }
+                .resumo-item strong { display: block; font-size: 1.2rem; color: #3b82f6; margin-top: 5px; }
+                .footer { margin-top: 30px; text-align: center; font-size: 0.8rem; color: #94a3b8; }
+            </style></head><body>
+            <div class="header">
+                <div class="logo">🚛</div>
+                <h1>Relatório de Serviços de Guincho</h1>
+                <p style="color:#64748b;margin-top:5px">FROTA STRSAT</p>
+                <p style="color:#94a3b8;font-size:0.85rem">Emitido em: ${new Date().toLocaleString('pt-BR')}</p>
+            </div>
+            <div class="resumo">
+                <div class="resumo-item">Total Serviços<strong>${filtered.length}</strong></div>
+                <div class="resumo-item">Em Andamento<strong>${andamento}</strong></div>
+                <div class="resumo-item">Finalizados<strong>${finalizados}</strong></div>
+                <div class="resumo-item">KM Total<strong>${kmTotal.toFixed(1)} km</strong></div>
+                <div class="resumo-item">Valor Total<strong>R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong></div>
+            </div>
+            <table>
+                <thead><tr>
+                    <th>Data</th><th>Placa</th><th>Motorista</th><th>KM Perc.</th><th>Valor</th><th>Status</th>
+                </tr></thead>
+                <tbody>
+                    ${filtered.map(s => `
+                        <tr>
+                            <td>${s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---'}</td>
+                            <td><b>${s.placa}</b></td>
+                            <td>${s.motorista || '---'}</td>
+                            <td>${parseFloat(s.km_percorrido || 0).toFixed(1)} km</td>
+                            <td>R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                            <td>${s.status}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <div class="footer"><p>Relatório gerado automaticamente - FROTA STRSAT &copy; ${new Date().getFullYear()}</p></div>
+            <script>window.print();<\/script>
+        </body></html>`;
+        printWin.document.write(html);
+        printWin.document.close();
+    };
+
+    // === Guincho Event Listeners ===
+    document.getElementById('btn-novo-guincho')?.addEventListener('click', () => openGuinchoModal());
+    document.querySelectorAll('.close-guincho-modal').forEach(el => {
+        el.addEventListener('click', () => document.getElementById('guincho-modal').style.display = 'none');
+    });
+    document.querySelectorAll('.close-guincho-detalhes').forEach(el => {
+        el.addEventListener('click', () => document.getElementById('guincho-detalhes-modal').style.display = 'none');
+    });
+
+    document.getElementById('guincho-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        const isManual = document.getElementById('guincho-km-mode-manual').classList.contains('active');
+        const kmPercorrido = isManual
+            ? parseFloat(document.getElementById('guincho-km-percorrido').value) || 0
+            : parseFloat(document.getElementById('guincho-km-percorrido-gps').value) || 0;
+
+        const payload = {
+            placa: document.getElementById('guincho-placa').value.toUpperCase().trim(),
+            motorista: document.getElementById('guincho-motorista').value.trim(),
+            data_inicio: new Date(document.getElementById('guincho-data-inicio').value).toISOString(),
+            valor_cobrado: parseFloat(document.getElementById('guincho-valor').value) || 0,
+            status: document.getElementById('guincho-status').value,
+            km_percorrido: kmPercorrido,
+            observacoes: document.getElementById('guincho-observacoes').value.trim(),
+            user_id: user?.id
+        };
+
+        if (isManual) {
+            payload.km_inicial = parseFloat(document.getElementById('guincho-km-inicial').value) || null;
+            payload.km_final = parseFloat(document.getElementById('guincho-km-final').value) || null;
+        } else {
+            payload.lat_origem = parseFloat(document.getElementById('guincho-lat-origem').value) || null;
+            payload.lng_origem = parseFloat(document.getElementById('guincho-lng-origem').value) || null;
+            payload.lat_destino = parseFloat(document.getElementById('guincho-lat-destino').value) || null;
+            payload.lng_destino = parseFloat(document.getElementById('guincho-lng-destino').value) || null;
+            payload.km_inicial = null;
+            payload.km_final = null;
+        }
+
+        if (!payload.placa) return alert('Informe a placa do veículo.');
+
+        try {
+            if (guinchoEditingId) {
+                const { error } = await window.supabaseClient
+                    .from('servicos_guincho')
+                    .update(payload)
+                    .eq('id', guinchoEditingId);
+                if (error) throw error;
+            } else {
+                const { error } = await window.supabaseClient
+                    .from('servicos_guincho')
+                    .insert([payload]);
+                if (error) throw error;
+            }
+            document.getElementById('guincho-modal').style.display = 'none';
+            await fetchGuinchoData();
+        } catch (error) {
+            alert('Erro ao salvar: ' + error.message);
+        }
+    });
+
+    document.getElementById('btn-calcular-distancia')?.addEventListener('click', calcularDistanciaGPS);
+    document.getElementById('btn-pdf-guincho')?.addEventListener('click', gerarPDFGuincho);
+    document.getElementById('btn-filtrar-guincho')?.addEventListener('click', renderGuinchoTable);
+    document.getElementById('btn-limpar-filtros-guincho')?.addEventListener('click', () => {
+        document.getElementById('filter-guincho-placa').value = '';
+        document.getElementById('filter-guincho-motorista').value = '';
+        document.getElementById('filter-guincho-status').value = '';
+        document.getElementById('filter-guincho-inicio').value = '';
+        document.getElementById('filter-guincho-fim').value = '';
+        document.getElementById('search-guincho').value = '';
+        renderGuinchoTable();
+    });
+    document.getElementById('btn-atualizar-guincho')?.addEventListener('click', fetchGuinchoData);
+    document.getElementById('search-guincho')?.addEventListener('input', renderGuinchoTable);
+
+    // Load Guincho data when navigating to guincho view
+    document.querySelector('[data-view="guincho"]')?.addEventListener('click', () => {
+        setTimeout(fetchGuinchoData, 100);
+    });
+
+    // Auto-load guincho data after login too
+    const origCheckAuth = checkAuthAndLoad;
+    checkAuthAndLoad = async () => {
+        await origCheckAuth.call(this);
+        await fetchGuinchoData();
+    };
+
+    // Also load on DOMContentLoaded after initial data
+    setTimeout(fetchGuinchoData, 2000);
+
+    // === DASHBOARD TABS ===
+    document.querySelectorAll('#dashboard-tabs .tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#dashboard-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const dash = btn.getAttribute('data-dash');
+            document.getElementById('dash-manutencao').style.display = dash === 'manutencao' ? 'block' : 'none';
+            document.getElementById('dash-guincho').style.display = dash === 'guincho' ? 'block' : 'none';
+            if (dash === 'guincho') {
+                renderRecentGuincho();
+                updateGuinchoStats();
+            }
+        });
+    });
+
+    // === RELATORIO TABS (Manutenção / Guincho) ===
+    document.querySelectorAll('#relatorio-tabs .tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#relatorio-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const relatorio = btn.getAttribute('data-relatorio');
+            document.getElementById('relatorio-manutencao').style.display = relatorio === 'manutencao' ? 'block' : 'none';
+            document.getElementById('relatorio-guincho').style.display = relatorio === 'guincho' ? 'block' : 'none';
+            if (relatorio === 'guincho') updateRelatorioGuinchoStats();
+        });
+    });
+
+    function updateRelatorioGuinchoStats() {
+        const placa = (document.getElementById('filter-rel-guincho-placa').value || '').toUpperCase();
+        const motorista = (document.getElementById('filter-rel-guincho-motorista').value || '').toLowerCase();
+        const status = document.getElementById('filter-rel-guincho-status').value;
+        const inicio = document.getElementById('filter-rel-guincho-inicio').value;
+        const fim = document.getElementById('filter-rel-guincho-fim').value;
+
+        const filtered = guinchoServices.filter(s => {
+            if (placa && !s.placa.toUpperCase().includes(placa)) return false;
+            if (motorista && (!s.motorista || !s.motorista.toLowerCase().includes(motorista))) return false;
+            if (status && s.status !== status) return false;
+            if (inicio && new Date(s.data_inicio) < new Date(inicio)) return false;
+            if (fim) {
+                const end = new Date(fim);
+                end.setDate(end.getDate() + 1);
+                if (new Date(s.data_inicio) > end) return false;
+            }
+            return true;
+        });
+
+        const total = filtered.length;
+        const andamento = filtered.filter(s => s.status === 'Em Serviço').length;
+        const finalizados = filtered.filter(s => s.status === 'Finalizado').length;
+        const kmTotal = filtered.reduce((s, x) => s + (parseFloat(x.km_percorrido) || 0), 0);
+        const valorTotal = filtered.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+
+        document.getElementById('stat-rel-guincho-total').textContent = total;
+        document.getElementById('stat-rel-guincho-andamento').textContent = andamento;
+        document.getElementById('stat-rel-guincho-finalizados').textContent = finalizados;
+        document.getElementById('stat-rel-guincho-km').textContent = `${kmTotal.toLocaleString()} km`;
+        document.getElementById('stat-rel-guincho-valor').textContent = `R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    }
+
+    document.getElementById('btn-rel-pdf-guincho')?.addEventListener('click', () => {
+        const placa = (document.getElementById('filter-rel-guincho-placa').value || '').toUpperCase();
+        const motorista = (document.getElementById('filter-rel-guincho-motorista').value || '').toLowerCase();
+        const status = document.getElementById('filter-rel-guincho-status').value;
+        const inicio = document.getElementById('filter-rel-guincho-inicio').value;
+        const fim = document.getElementById('filter-rel-guincho-fim').value;
+
+        const filtered = guinchoServices.filter(s => {
+            if (placa && !s.placa.toUpperCase().includes(placa)) return false;
+            if (motorista && (!s.motorista || !s.motorista.toLowerCase().includes(motorista))) return false;
+            if (status && s.status !== status) return false;
+            if (inicio && new Date(s.data_inicio) < new Date(inicio)) return false;
+            if (fim) {
+                const end = new Date(fim);
+                end.setDate(end.getDate() + 1);
+                if (new Date(s.data_inicio) > end) return false;
+            }
+            return true;
+        });
+
+        if (filtered.length === 0) return alert('Nenhum serviço encontrado para os filtros selecionados.');
+
+        const andamento = filtered.filter(s => s.status === 'Em Serviço').length;
+        const finalizados = filtered.filter(s => s.status === 'Finalizado').length;
+        const kmTotal = filtered.reduce((s, x) => s + (parseFloat(x.km_percorrido) || 0), 0);
+        const valorTotal = filtered.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+
+        const printWin = window.open('', '_blank');
+        printWin.document.write(`
+            <html><head><title>Relatório Guincho - FROTA STRSAT</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; }
+                .header { text-align: center; border-bottom: 2px solid #8b5cf6; padding-bottom: 20px; margin-bottom: 30px; }
+                h1 { color: #1e293b; margin: 0; font-size: 1.5rem; }
+                .logo { font-size: 2rem; margin-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th { background: #f1f5f9; text-align: left; padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; }
+                td { padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; }
+                .resumo { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 20px; }
+                .resumo-item { flex: 1; min-width: 120px; background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; }
+                .resumo-item strong { display: block; font-size: 1.2rem; color: #8b5cf6; margin-top: 5px; }
+                .footer { margin-top: 30px; text-align: center; font-size: 0.8rem; color: #94a3b8; }
+            </style></head><body>
+            <div class="header">
+                <div class="logo">🚛</div>
+                <h1>Relatório de Serviços de Guincho</h1>
+                <p style="color:#64748b;margin-top:5px">FROTA STRSAT</p>
+                <p style="color:#94a3b8;font-size:0.85rem">Emitido em: ${new Date().toLocaleString('pt-BR')}</p>
+            </div>
+            <div class="resumo">
+                <div class="resumo-item">Total<strong>${filtered.length}</strong></div>
+                <div class="resumo-item">Andamento<strong>${andamento}</strong></div>
+                <div class="resumo-item">Finalizados<strong>${finalizados}</strong></div>
+                <div class="resumo-item">KM Total<strong>${kmTotal.toFixed(1)} km</strong></div>
+                <div class="resumo-item">Valor Total<strong>R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong></div>
+            </div>
+            <table>
+                <thead><tr><th>Data</th><th>Placa</th><th>Motorista</th><th>KM Perc.</th><th>Valor</th><th>Status</th></tr></thead>
+                <tbody>${filtered.map(s => `<tr>
+                    <td>${s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---'}</td>
+                    <td><b>${s.placa}</b></td>
+                    <td>${s.motorista || '---'}</td>
+                    <td>${parseFloat(s.km_percorrido || 0).toFixed(1)} km</td>
+                    <td>R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                    <td>${s.status}</td>
+                </tr>`).join('')}</tbody>
+            </table>
+            <div class="footer"><p>Relatório gerado automaticamente - FROTA STRSAT &copy; ${new Date().getFullYear()}</p></div>
+            <script>window.print();<\/script></body></html>
+        `);
+        printWin.document.close();
+    });
+
+    document.getElementById('btn-rel-atualizar-guincho')?.addEventListener('click', updateRelatorioGuinchoStats);
+    ['filter-rel-guincho-placa','filter-rel-guincho-motorista','filter-rel-guincho-status','filter-rel-guincho-inicio','filter-rel-guincho-fim'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateRelatorioGuinchoStats);
+        document.getElementById(id)?.addEventListener('change', updateRelatorioGuinchoStats);
     });
 
 });

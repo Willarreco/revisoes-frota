@@ -312,6 +312,7 @@ header {
 .icon-red { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
 .icon-orange { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
 .icon-green { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+.icon-purple { background: rgba(139, 92, 246, 0.1); color: #a78bfa; }
 
 /* Charts Layout */
 .charts-grid {

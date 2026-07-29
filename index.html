@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FROTA STRSAT</title>
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,14 +19,11 @@
             <li class="nav-item active" data-view="dashboard"><a href="#" class="nav-link"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a></li>
             <li class="nav-item" data-view="veiculos"><a href="#" class="nav-link"><i data-lucide="truck"></i><span>Veículos</span></a></li>
             <li class="nav-item" data-view="manutencao"><a href="#" class="nav-link"><i data-lucide="wrench"></i><span>Manutenções</span></a></li>
+            <li class="nav-item" data-view="guincho"><a href="#" class="nav-link"><i data-lucide="tractor"></i><span>Guincho</span></a></li>
             <li class="nav-item" data-view="relatorios"><a href="#" class="nav-link"><i data-lucide="bar-chart-3"></i><span>Relatórios</span></a></li>
             <li class="nav-item" data-view="config"><a href="#" class="nav-link"><i data-lucide="settings"></i><span>Configurações</span></a></li>
         </ul>
-        <div class="nav-item" style="margin-top: auto; display: flex; flex-direction: column; gap: 0.5rem;">
-            <a href="#" class="nav-link text-danger" id="btn-reset-system" style="font-size: 0.8rem; opacity: 0.7;">
-                <i data-lucide="refresh-cw"></i>
-                <span>Resetar Dados</span>
-            </a>
+        <div class="nav-item" style="margin-top: auto;">
             <a href="#" class="nav-link text-danger" onclick="logout()">
                 <i data-lucide="log-out"></i>
                 <span>Sair</span>
@@ -38,10 +35,6 @@
         <header>
             <div style="display: flex; align-items: center; gap: 1.5rem;">
                 <div class="page-title"><h1 id="view-title">Dashboard</h1></div>
-                <div class="view-toggle" id="view-toggle">
-                    <button class="toggle-btn active" data-mode="ativos">Ativos</button>
-                    <button class="toggle-btn" data-mode="inativos">Inativos</button>
-                </div>
             </div>
             <div class="user-profile">
                 <div class="user-info"><span class="user-name">Administrador</span><span class="user-role">admin@empresa.com</span></div>
@@ -52,19 +45,43 @@
         <div class="container">
             <!-- DASHBOARD -->
             <section id="dashboard" class="view-section active">
-                <div class="stats-grid">
-                    <div class="card stat-card"><div class="stat-icon icon-blue"><i data-lucide="truck"></i></div><div class="stat-info"><span class="stat-value" id="stat-active">0</span><span class="stat-label">Veículos Ativos</span></div></div>
-                    <div class="card stat-card"><div class="stat-icon icon-orange"><i data-lucide="settings-2"></i></div><div class="stat-info"><span class="stat-value" id="stat-maintenance">0</span><span class="stat-label">Em Manutenção</span></div></div>
-                    <div class="card stat-card"><div class="stat-icon icon-red"><i data-lucide="alert-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-overdue">0</span><span class="stat-label">Revisões Vencidas</span></div></div>
-                    <div class="card stat-card"><div class="stat-icon icon-green"><i data-lucide="calendar"></i></div><div class="stat-info"><span class="stat-value" id="stat-next">0</span><span class="stat-label">Próximas Revisões</span></div></div>
+                <div class="tabs mb-4" id="dashboard-tabs">
+                    <button class="tab-btn active" data-dash="manutencao">🔧 Manutenções</button>
+                    <button class="tab-btn" data-dash="guincho">🚛 Guincho</button>
                 </div>
-                <div class="charts-grid">
-                    <div class="card chart-card"><div class="card-header"><h3 class="card-title">Fluxo de Custos Mensais</h3></div><canvas id="costsChart"></canvas></div>
-                    <div class="card chart-card"><div class="card-header"><h3 class="card-title">Distribuição de Gastos</h3></div><canvas id="typeChart"></canvas></div>
+
+                <div id="dash-manutencao">
+                    <div class="stats-grid">
+                        <div class="card stat-card"><div class="stat-icon icon-blue"><i data-lucide="truck"></i></div><div class="stat-info"><span class="stat-value" id="stat-active">0</span><span class="stat-label">Veículos Ativos</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-orange"><i data-lucide="settings-2"></i></div><div class="stat-info"><span class="stat-value" id="stat-maintenance">0</span><span class="stat-label">Em Manutenção</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-red"><i data-lucide="alert-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-overdue">0</span><span class="stat-label">Revisões Vencidas</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-green"><i data-lucide="calendar"></i></div><div class="stat-info"><span class="stat-value" id="stat-next">0</span><span class="stat-label">Próximas Revisões</span></div></div>
+                    </div>
+                    <div class="charts-grid">
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Fluxo de Custos Mensais</h3></div><canvas id="costsChart"></canvas></div>
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Distribuição de Gastos</h3></div><canvas id="typeChart"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3 class="card-title">Atividades Recentes</h3></div>
+                        <div class="table-container"><table><thead><tr><th>Veículo</th><th>Serviço</th><th>Data</th><th>Custo</th><th>Status</th></tr></thead><tbody id="recent-activities"></tbody></table></div>
+                    </div>
                 </div>
-                <div class="card">
-                    <div class="card-header"><h3 class="card-title">Atividades Recentes</h3></div>
-                    <div class="table-container"><table><thead><tr><th>Veículo</th><th>Serviço</th><th>Data</th><th>Custo</th><th>Status</th></tr></thead><tbody id="recent-activities"></tbody></table></div>
+
+                <div id="dash-guincho" style="display:none">
+                    <div class="stats-grid">
+                        <div class="card stat-card"><div class="stat-icon icon-blue"><i data-lucide="tractor"></i></div><div class="stat-info"><span class="stat-value" id="stat-dash-guincho-andamento">0</span><span class="stat-label">Em Andamento</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-green"><i data-lucide="check-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-dash-guincho-finalizados">0</span><span class="stat-label">Finalizados (mês)</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-orange"><i data-lucide="route"></i></div><div class="stat-info"><span class="stat-value" id="stat-dash-guincho-km">0 km</span><span class="stat-label">KM no Mês</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-purple"><i data-lucide="dollar-sign"></i></div><div class="stat-info"><span class="stat-value" id="stat-dash-guincho-valor">R$ 0,00</span><span class="stat-label">Faturamento Mês</span></div></div>
+                    </div>
+                    <div class="charts-grid">
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Fluxo de Faturamento Mensal</h3></div><canvas id="guinchoCostsChart"></canvas></div>
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Distribuição por Status</h3></div><canvas id="guinchoTypeChart"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3 class="card-title">Últimos Serviços</h3></div>
+                        <div class="table-container"><table><thead><tr><th>Data</th><th>Placa</th><th>Motorista</th><th>KM</th><th>Valor</th><th>Status</th></tr></thead><tbody id="recent-guincho"></tbody></table></div>
+                    </div>
                 </div>
             </section>
 
@@ -72,7 +89,11 @@
             <section id="veiculos" class="view-section">
                 <div class="card-header mb-4">
                     <h3 class="card-title">Frota de Veículos</h3>
-                    <div style="display: flex; gap: 1rem;">
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        <div class="view-toggle" id="view-toggle-veiculos">
+                            <button class="toggle-btn active" data-mode="ativos">Ativos</button>
+                            <button class="toggle-btn" data-mode="inativos">Inativos</button>
+                        </div>
                         <div class="search-box"><input type="text" placeholder="Buscar por placa ou modelo..." class="form-input" id="search-veiculos"></div>
                         <button class="btn btn-primary" id="btn-new-vehicle"><i data-lucide="plus"></i> Novo Veículo</button>
                     </div>
@@ -108,14 +129,9 @@
                     <h3 class="card-title">Registro de Manutenção</h3>
                     <div style="display: flex; gap: 0.75rem; align-items: center;">
                         <input type="file" id="quote-file-input" accept="image/*" style="display: none;">
-                        <input type="file" id="webhook-file-input" accept="image/*,.pdf" style="display: none;">
                         <button type="button" class="btn btn-back" id="btn-import-quote" style="border-color: var(--accent-color); color: var(--text-primary); gap: 0.5rem;">
                             <i data-lucide="sparkles" style="color: var(--accent-color); width: 16px; height: 16px;"></i>
                             <span>Ler Orçamento (IA)</span>
-                        </button>
-                        <button type="button" class="btn btn-back" id="btn-ocr-webhook" style="border-color: var(--accent-color); color: var(--text-primary); gap: 0.5rem;">
-                            <i data-lucide="file-text" style="color: var(--accent-color); width: 16px; height: 16px;"></i>
-                            <span>OCR Webhook</span>
                         </button>
                         <button class="btn btn-primary" id="save-maintenance"><i data-lucide="save"></i> Finalizar Registro</button>
                     </div>
@@ -141,22 +157,112 @@
                 <div class="card mt-4" style="text-align: right;"><span style="font-size: 1.2rem; font-weight: 700;">Total da Ordem: <span id="maint-total-price">R$ 0,00</span></span></div>
             </section>
 
-            <!-- RELATORIOS -->
-            <section id="relatorios" class="view-section">
-                <div class="card mb-4">
-                    <div class="card-header"><h3 class="card-title">Filtros de Relatório</h3></div>
-                    <div class="form-row mt-4">
-                        <div class="form-group"><label>Veículo</label><select class="form-input" id="filter-vehicle-select"></select></div>
-                        <div class="form-group"><label>Início</label><input type="date" class="form-input" id="filter-start-date"></div>
-                        <div class="form-group"><label>Fim</label><input type="date" class="form-input" id="filter-end-date"></div>
-                        <div class="form-group" style="display:flex; align-items:flex-end;"><button class="btn btn-primary w-100" id="btn-generate-pdf"><i data-lucide="file-text"></i> Gerar PDF</button></div>
+            <!-- GUINCHO -->
+            <section id="guincho" class="view-section">
+                <div class="stats-grid mb-4">
+                    <div class="card stat-card"><div class="stat-icon icon-blue"><i data-lucide="tractor"></i></div><div class="stat-info"><span class="stat-value" id="stat-guincho-andamento">0</span><span class="stat-label">Em Andamento</span></div></div>
+                    <div class="card stat-card"><div class="stat-icon icon-green"><i data-lucide="check-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-guincho-finalizados">0</span><span class="stat-label">Finalizados</span></div></div>
+                    <div class="card stat-card"><div class="stat-icon icon-orange"><i data-lucide="route"></i></div><div class="stat-info"><span class="stat-value" id="stat-guincho-km">0 km</span><span class="stat-label">KM Percorridos</span></div></div>
+                    <div class="card stat-card"><div class="stat-icon icon-purple"><i data-lucide="dollar-sign"></i></div><div class="stat-info"><span class="stat-value" id="stat-guincho-valor">R$ 0,00</span><span class="stat-label">Valor Faturado</span></div></div>
+                </div>
+
+                <div class="card-header mb-4">
+                    <h3 class="card-title">Serviços de Guincho</h3>
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        <div class="search-box"><input type="text" placeholder="Buscar por placa ou motorista..." class="form-input" id="search-guincho"></div>
+                        <button class="btn btn-primary" id="btn-novo-guincho"><i data-lucide="plus"></i> Novo Serviço</button>
+                        <button class="btn btn-back" id="btn-atualizar-guincho"><i data-lucide="refresh-cw"></i> Atualizar</button>
                     </div>
                 </div>
-                <div class="stats-grid">
-                    <div class="card stat-card"><div class="stat-info"><span class="stat-label">Custo Acumulado</span><span class="stat-value">R$ 0,00</span></div></div>
-                    <div class="card stat-card"><div class="stat-info"><span class="stat-label">Média por Veículo</span><span class="stat-value">R$ 0,00</span></div></div>
-                    <div class="card stat-card"><div class="stat-info"><span class="stat-label">Maior Gasto (Mês)</span><span class="stat-value">R$ 0,00</span></div></div>
-                    <div class="card stat-card"><div class="stat-info"><span class="stat-label">Total de Ordens</span><span class="stat-value">0</span></div></div>
+
+                <div class="card mb-4" id="guincho-filters" style="padding: 1rem;">
+                    <div class="form-row">
+                        <div class="form-group"><label>Filtrar por Placa</label><input type="text" class="form-input" id="filter-guincho-placa" placeholder="Placa"></div>
+                        <div class="form-group"><label>Filtrar por Motorista</label><input type="text" class="form-input" id="filter-guincho-motorista" placeholder="Motorista"></div>
+                        <div class="form-group"><label>Status</label><select class="form-input" id="filter-guincho-status"><option value="">Todos</option><option value="Em Serviço">Em Serviço</option><option value="Finalizado">Finalizado</option></select></div>
+                        <div class="form-group"><label>Período Início</label><input type="date" class="form-input" id="filter-guincho-inicio"></div>
+                        <div class="form-group"><label>Período Fim</label><input type="date" class="form-input" id="filter-guincho-fim"></div>
+                        <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                            <button class="btn btn-primary" id="btn-filtrar-guincho"><i data-lucide="filter"></i> Filtrar</button>
+                            <button class="btn btn-back" id="btn-limpar-filtros-guincho"><i data-lucide="x"></i> Limpar</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem; justify-content: flex-end;">
+                        <button class="btn btn-back" id="btn-pdf-guincho"><i data-lucide="file-text"></i> Gerar PDF</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="cursor:pointer" onclick="sortGuincho('data_inicio')">Data ↕</th>
+                                    <th>Placa</th>
+                                    <th>Motorista</th>
+                                    <th>KM Inicial</th>
+                                    <th>KM Final</th>
+                                    <th>KM Percorrido</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="guincho-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RELATORIOS -->
+            <section id="relatorios" class="view-section">
+                <div class="tabs mb-4" id="relatorio-tabs">
+                    <button class="tab-btn active" data-relatorio="manutencao">Manutenções</button>
+                    <button class="tab-btn" data-relatorio="guincho">Guincho</button>
+                </div>
+
+                <!-- Relatório de Manutenções -->
+                <div id="relatorio-manutencao">
+                    <div class="card mb-4">
+                        <div class="card-header"><h3 class="card-title">Filtros de Relatório</h3></div>
+                        <div class="form-row mt-4">
+                            <div class="form-group"><label>Veículo</label><select class="form-input" id="filter-vehicle-select"></select></div>
+                            <div class="form-group"><label>Início</label><input type="date" class="form-input" id="filter-start-date"></div>
+                            <div class="form-group"><label>Fim</label><input type="date" class="form-input" id="filter-end-date"></div>
+                            <div class="form-group" style="display:flex; align-items:flex-end;"><button class="btn btn-primary w-100" id="btn-generate-pdf"><i data-lucide="file-text"></i> Gerar PDF</button></div>
+                        </div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Custo Acumulado</span><span class="stat-value">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Média por Veículo</span><span class="stat-value">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Maior Gasto (Mês)</span><span class="stat-value">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Total de Ordens</span><span class="stat-value">0</span></div></div>
+                    </div>
+                </div>
+
+                <!-- Relatório de Guincho -->
+                <div id="relatorio-guincho" style="display:none;">
+                    <div class="card mb-4">
+                        <div class="card-header"><h3 class="card-title">Filtros de Relatório - Guincho</h3></div>
+                        <div class="form-row mt-4">
+                            <div class="form-group"><label>Placa</label><input type="text" class="form-input" id="filter-rel-guincho-placa" placeholder="Placa"></div>
+                            <div class="form-group"><label>Motorista</label><input type="text" class="form-input" id="filter-rel-guincho-motorista" placeholder="Motorista"></div>
+                            <div class="form-group"><label>Status</label><select class="form-input" id="filter-rel-guincho-status"><option value="">Todos</option><option value="Em Serviço">Em Serviço</option><option value="Finalizado">Finalizado</option></select></div>
+                            <div class="form-group"><label>Início</label><input type="date" class="form-input" id="filter-rel-guincho-inicio"></div>
+                            <div class="form-group"><label>Fim</label><input type="date" class="form-input" id="filter-rel-guincho-fim"></div>
+                            <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                                <button class="btn btn-primary" id="btn-rel-pdf-guincho"><i data-lucide="file-text"></i> Gerar PDF</button>
+                                <button class="btn btn-back" id="btn-rel-atualizar-guincho"><i data-lucide="refresh-cw"></i> Atualizar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Total Serviços</span><span class="stat-value" id="stat-rel-guincho-total">0</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Em Andamento</span><span class="stat-value" id="stat-rel-guincho-andamento">0</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Finalizados</span><span class="stat-value" id="stat-rel-guincho-finalizados">0</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">KM Total</span><span class="stat-value" id="stat-rel-guincho-km">0 km</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Valor Total</span><span class="stat-value" id="stat-rel-guincho-valor">R$ 0,00</span></div></div>
+                    </div>
                 </div>
             </section>
 
@@ -298,6 +404,103 @@
         </div>
     </div>
 
+    <!-- GUINCHO MODAL -->
+    <div id="guincho-modal" class="modal">
+        <div class="modal-content card" style="max-width: 700px;">
+            <div class="card-header">
+                <h3 class="card-title" id="guincho-modal-title">Novo Serviço de Guincho</h3>
+                <span class="close-modal close-guincho-modal">&times;</span>
+            </div>
+            <form id="guincho-form" class="mt-4">
+                <div class="form-row">
+                    <div class="form-group"><label>Placa do Veículo *</label><input type="text" id="guincho-placa" class="form-input" placeholder="AAA0A00" required style="text-transform:uppercase"></div>
+                    <div class="form-group"><label>Motorista / Operador</label><input type="text" id="guincho-motorista" class="form-input" placeholder="Nome do motorista"></div>
+                </div>
+                <div class="form-row mt-4">
+                    <div class="form-group"><label>Data/Hora Início *</label><input type="datetime-local" id="guincho-data-inicio" class="form-input" required></div>
+                    <div class="form-group"><label>Valor Cobrado (R$) *</label><input type="number" id="guincho-valor" class="form-input" placeholder="0,00" step="0.01" required></div>
+                    <div class="form-group"><label>Status</label><select id="guincho-status" class="form-input"><option value="Em Serviço">Em Serviço</option><option value="Finalizado">Finalizado</option></select></div>
+                </div>
+
+                <div class="card mt-4" style="padding: 1rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h4 style="font-size:0.95rem; font-weight:600;">Quilometragem</h4>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button type="button" class="btn btn-sm btn-back active" id="guincho-km-mode-manual" onclick="setGuinchoKMMode('manual')">Manual</button>
+                            <button type="button" class="btn btn-sm btn-back" id="guincho-km-mode-gps" onclick="setGuinchoKMMode('gps')">GPS</button>
+                        </div>
+                    </div>
+
+                    <div id="guincho-km-manual">
+                        <div class="form-row">
+                            <div class="form-group"><label>KM Inicial</label><input type="number" id="guincho-km-inicial" class="form-input" placeholder="0"></div>
+                            <div class="form-group"><label>KM Final</label><input type="number" id="guincho-km-final" class="form-input" placeholder="0" oninput="calcGuinchoKM()"></div>
+                            <div class="form-group"><label>KM Percorrido</label><input type="number" id="guincho-km-percorrido" class="form-input" placeholder="Calculado" readonly style="font-weight:700;color:var(--accent-color)"></div>
+                        </div>
+                    </div>
+
+                    <div id="guincho-km-gps" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group"><label>Latitude Origem</label><input type="number" id="guincho-lat-origem" class="form-input" placeholder="-23.5505" step="any"></div>
+                            <div class="form-group"><label>Longitude Origem</label><input type="number" id="guincho-lng-origem" class="form-input" placeholder="-46.6333" step="any"></div>
+                            <div class="form-group"><label>Latitude Destino</label><input type="number" id="guincho-lat-destino" class="form-input" placeholder="-23.5610" step="any"></div>
+                            <div class="form-group"><label>Longitude Destino</label><input type="number" id="guincho-lng-destino" class="form-input" placeholder="-46.6560" step="any"></div>
+                        </div>
+                        <div style="display:flex; gap:1rem; align-items:center; margin-top:0.5rem;">
+                            <button type="button" class="btn btn-primary" id="btn-calcular-distancia"><i data-lucide="map"></i> Calcular Distância</button>
+                            <span style="font-size:0.85rem; color:var(--text-secondary)">ou</span>
+                            <div class="form-group" style="margin:0;flex-grow:1"><label style="font-size:0.85rem">KM Percorrido (editar se necessário)</label><input type="number" id="guincho-km-percorrido-gps" class="form-input" placeholder="0" step="any"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row mt-4">
+                    <div class="form-group" style="grid-column:1/-1"><label>Observações</label><textarea id="guincho-observacoes" class="form-input" rows="3" placeholder="Observações sobre o serviço..."></textarea></div>
+                </div>
+
+                <div class="mt-4" style="display: flex; justify-content: flex-end; gap: 1rem;">
+                    <button type="button" class="btn btn-back close-guincho-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-salvar-guincho"><i data-lucide="save"></i> Salvar Serviço</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- GUINCHO DETALHES MODAL -->
+    <div id="guincho-detalhes-modal" class="modal">
+        <div class="modal-content card" style="max-width: 600px;">
+            <div class="card-header">
+                <h3 class="card-title">Detalhes do Serviço de Guincho</h3>
+                <span class="close-modal close-guincho-detalhes">&times;</span>
+            </div>
+            <div id="guincho-detalhes-content" class="mt-4" style="padding: 1rem;">
+                <div class="detail-header mb-4">
+                    <div><h2 id="gd-placa" style="font-size:1.3rem">--</h2><p id="gd-motorista" style="color:var(--text-secondary)">--</p></div>
+                    <span class="plate-badge" id="gd-status">--</span>
+                </div>
+                <div class="details-grid" style="grid-template-columns:1fr 1fr;gap:1rem">
+                    <div class="stat-mini"><span class="label">Data/Hora Início</span><span class="value" id="gd-data-inicio">--</span></div>
+                    <div class="stat-mini"><span class="label">Data/Hora Término</span><span class="value" id="gd-data-fim">--</span></div>
+                    <div class="stat-mini"><span class="label">KM Inicial</span><span class="value" id="gd-km-inicial">--</span></div>
+                    <div class="stat-mini"><span class="label">KM Final</span><span class="value" id="gd-km-final">--</span></div>
+                    <div class="stat-mini"><span class="label">KM Percorrido</span><span class="value" id="gd-km-percorrido">--</span></div>
+                    <div class="stat-mini"><span class="label">Valor Cobrado</span><span class="value" id="gd-valor" style="color:var(--success);font-weight:700">--</span></div>
+                </div>
+                <div class="card mt-4" style="padding:1rem">
+                    <h4 style="font-size:0.95rem;font-weight:600;margin-bottom:0.75rem">📋 Observações</h4>
+                    <p id="gd-observacoes" style="color:var(--text-secondary);line-height:1.5;white-space:pre-wrap">---</p>
+                </div>
+                <div id="gd-coords" class="card mt-4" style="padding:1rem;display:none">
+                    <h4 style="font-size:0.95rem;font-weight:600;margin-bottom:0.75rem">📍 Coordenadas GPS</h4>
+                    <p id="gd-coords-text" style="color:var(--text-secondary);font-size:0.9rem">--</p>
+                </div>
+            </div>
+            <div class="mt-4" style="display:flex;justify-content:flex-end">
+                <button type="button" class="btn btn-back close-guincho-detalhes">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- GEMINI KEY MODAL -->
     <div id="gemini-key-modal" class="modal">
         <div class="modal-content card" style="max-width: 500px;">
@@ -338,9 +541,9 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js?v=2"></script>
-    <script src="auth.js?v=2"></script>
-    <script src="script_app.js?v=3"></script>
+    <script src="config.js?v=3"></script>
+    <script src="auth.js?v=3"></script>
+    <script src="script_app.js?v=14"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>
