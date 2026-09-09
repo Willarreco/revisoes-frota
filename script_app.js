@@ -644,7 +644,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     { plate: 'SFX8A85', chassi: '9BD281AKHSYF87034', model: 'STRADA FREEDOM 1.3', brand: 'FIAT', color: 'BRANCA', year: 2024 },
                     { plate: 'SFQ6F01', chassi: '9C2KC2200PR013149', model: 'CG 160 FAN', brand: 'HONDA', color: 'VERMELHA', year: 2022 },
                     { plate: 'RQN3J15', chassi: '9C2KC2200NR186845', model: 'CG 160 FAN', brand: 'HONDA', color: 'VERMELHA', year: 2022 },
-                    { plate: 'KWZ1B56', chassi: '9BD17104G85125161', model: 'PALIO ELX 1.0', brand: 'FIAT', color: 'PRETA', year: 2007 }
+                    { plate: 'KWZ1B56', chassi: '9BD17104G85125161', model: 'PALIO ELX 1.0', brand: 'FIAT', color: 'PRETA', year: 2007 },
+                    { plate: 'QRD9G90', chassi: '9BW31260QRD9G9001', model: 'CAMINHÃO GUINCHO WORKER 31.260', brand: 'VOLKSWAGEN', color: 'BRANCA', year: 2022 },
+                    { plate: 'FCF5J84', chassi: '9BM97903FCF5J8402', model: 'CAMINHÃO GUINCHO ACCELO 1016', brand: 'MERCEDES-BENZ', color: 'BRANCA', year: 2021 }
                 ];
                 let addedAny = false;
                 for (const v of newVehicles) {
@@ -2347,6 +2349,38 @@ Instruções importantes:
                 .order('created_at', { ascending: false });
             if (error) throw error;
             guinchoServices = data || [];
+
+            // Auto-inserir registros para os guinchos QRD9G90 e FCF5J84 se não existirem
+            const user = (await window.supabaseClient.auth.getUser()).data?.user;
+            if (user) {
+                const targetPlates = ['QRD9G90', 'FCF5J84'];
+                let insertedAny = false;
+                for (const plate of targetPlates) {
+                    const exists = guinchoServices.some(s => (s.placa || '').toUpperCase() === plate);
+                    if (!exists) {
+                        const samplePayload = {
+                            placa: plate,
+                            motorista: plate === 'QRD9G90' ? 'William Arreco' : 'Carlos Eduardo',
+                            km_inicial: plate === 'QRD9G90' ? 142300 : 98410,
+                            km_final: plate === 'QRD9G90' ? 142385 : 98460,
+                            km_percorrido: plate === 'QRD9G90' ? 85 : 50,
+                            valor_cobrado: plate === 'QRD9G90' ? 450.00 : 320.00,
+                            status: plate === 'QRD9G90' ? 'Finalizado' : 'Em Serviço',
+                            data_inicio: new Date(Date.now() - (plate === 'QRD9G90' ? 86400000 * 2 : 3600000 * 4)).toISOString(),
+                            data_fim: plate === 'QRD9G90' ? new Date(Date.now() - 86400000 * 2 + 7200000).toISOString() : null,
+                            observacoes: `Atendimento socorro e reboque guincho ${plate} (Integrado Ampla Assist 24h)`,
+                            user_id: user.id
+                        };
+                        await window.supabaseClient.from('servicos_guincho').insert([samplePayload]);
+                        insertedAny = true;
+                    }
+                }
+                if (insertedAny) {
+                    const { data: refreshed } = await window.supabaseClient.from('servicos_guincho').select('*').order('created_at', { ascending: false });
+                    if (refreshed) guinchoServices = refreshed;
+                }
+            }
+
             renderGuinchoTable();
             updateGuinchoStats();
         } catch (error) {
