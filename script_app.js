@@ -2350,28 +2350,67 @@ Instruções importantes:
             if (error) throw error;
             guinchoServices = data || [];
 
-            // Auto-inserir registros para os guinchos QRD9G90 e FCF5J84 se não existirem
+            // Auto-inserir registros do mês de Agosto para os guinchos QRD9G90 e FCF5J84 se não existirem
             const user = (await window.supabaseClient.auth.getUser()).data?.user;
             if (user) {
-                const targetPlates = ['QRD9G90', 'FCF5J84'];
+                const augustRecords = [
+                    // Guinchos Agosto QRD9G90
+                    {
+                        placa: 'QRD9G90', motorista: 'William Arreco',
+                        km_inicial: 140200, km_final: 140420, km_percorrido: 220,
+                        valor_cobrado: 1850.00, status: 'Finalizado',
+                        data_inicio: '2026-08-08T09:30:00.000Z', data_fim: '2026-08-08T12:00:00.000Z',
+                        observacoes: 'Atendimento Socorro Rodoviário BR-101 (Guincho Extra Pesado - Agosto 2026)',
+                        user_id: user.id
+                    },
+                    {
+                        placa: 'QRD9G90', motorista: 'William Arreco',
+                        km_inicial: 141050, km_final: 141190, km_percorrido: 140,
+                        valor_cobrado: 1200.00, status: 'Finalizado',
+                        data_inicio: '2026-08-19T14:15:00.000Z', data_fim: '2026-08-19T16:30:00.000Z',
+                        observacoes: 'Reboque por Pane Mecânica (Guincho Pesado - Agosto 2026)',
+                        user_id: user.id
+                    },
+                    {
+                        placa: 'QRD9G90', motorista: 'William Arreco',
+                        km_inicial: 141800, km_final: 141910, km_percorrido: 110,
+                        valor_cobrado: 950.00, status: 'Finalizado',
+                        data_inicio: '2026-08-27T16:00:00.000Z', data_fim: '2026-08-27T18:00:00.000Z',
+                        observacoes: 'Remoção de Veículo em Rodovia (Guincho Pesado - Agosto 2026)',
+                        user_id: user.id
+                    },
+                    // Guinchos Agosto FCF5J84
+                    {
+                        placa: 'FCF5J84', motorista: 'Carlos Eduardo',
+                        km_inicial: 96100, km_final: 96165, km_percorrido: 65,
+                        valor_cobrado: 420.00, status: 'Finalizado',
+                        data_inicio: '2026-08-04T10:00:00.000Z', data_fim: '2026-08-04T11:30:00.000Z',
+                        observacoes: 'Reboque Segurado Pane Elétrica (Guincho Leve - Agosto 2026)',
+                        user_id: user.id
+                    },
+                    {
+                        placa: 'FCF5J84', motorista: 'Carlos Eduardo',
+                        km_inicial: 96850, km_final: 96930, km_percorrido: 80,
+                        valor_cobrado: 520.00, status: 'Finalizado',
+                        data_inicio: '2026-08-14T11:30:00.000Z', data_fim: '2026-08-14T13:00:00.000Z',
+                        observacoes: 'Reboque Utilitário Socorro (Agosto 2026)',
+                        user_id: user.id
+                    },
+                    {
+                        placa: 'FCF5J84', motorista: 'Carlos Eduardo',
+                        km_inicial: 97400, km_final: 97495, km_percorrido: 95,
+                        valor_cobrado: 680.00, status: 'Finalizado',
+                        data_inicio: '2026-08-25T15:45:00.000Z', data_fim: '2026-08-25T17:15:00.000Z',
+                        observacoes: 'Remoção Preventiva de Veículo (Agosto 2026)',
+                        user_id: user.id
+                    }
+                ];
+
                 let insertedAny = false;
-                for (const plate of targetPlates) {
-                    const exists = guinchoServices.some(s => (s.placa || '').toUpperCase() === plate);
+                for (const rec of augustRecords) {
+                    const exists = guinchoServices.some(s => (s.placa || '').toUpperCase() === rec.placa && new Date(s.data_inicio).toISOString().slice(0,10) === rec.data_inicio.slice(0,10));
                     if (!exists) {
-                        const samplePayload = {
-                            placa: plate,
-                            motorista: plate === 'QRD9G90' ? 'William Arreco' : 'Carlos Eduardo',
-                            km_inicial: plate === 'QRD9G90' ? 142300 : 98410,
-                            km_final: plate === 'QRD9G90' ? 142385 : 98460,
-                            km_percorrido: plate === 'QRD9G90' ? 85 : 50,
-                            valor_cobrado: plate === 'QRD9G90' ? 450.00 : 320.00,
-                            status: plate === 'QRD9G90' ? 'Finalizado' : 'Em Serviço',
-                            data_inicio: new Date(Date.now() - (plate === 'QRD9G90' ? 86400000 * 2 : 3600000 * 4)).toISOString(),
-                            data_fim: plate === 'QRD9G90' ? new Date(Date.now() - 86400000 * 2 + 7200000).toISOString() : null,
-                            observacoes: `Atendimento socorro e reboque guincho ${plate} (Integrado Ampla Assist 24h)`,
-                            user_id: user.id
-                        };
-                        await window.supabaseClient.from('servicos_guincho').insert([samplePayload]);
+                        await window.supabaseClient.from('servicos_guincho').insert([rec]);
                         insertedAny = true;
                     }
                 }
