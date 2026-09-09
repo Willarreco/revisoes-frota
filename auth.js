@@ -43,13 +43,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) {
                 showError(error.message);
             } else {
-                alert('Conta criada! Agora você pode clicar em "Entrar".');
+                showSuccess('Conta criada com sucesso! Agora clique em "Entrar".');
             }
         });
     }
 
     function showError(msg) {
         errorMsg.textContent = msg;
+        errorMsg.style.color = '#ef4444';
+        errorMsg.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+        errorMsg.style.background = 'rgba(239, 68, 68, 0.1)';
+        errorMsg.style.display = 'block';
+    }
+
+    function showSuccess(msg) {
+        errorMsg.textContent = msg;
+        errorMsg.style.color = '#10b981';
+        errorMsg.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        errorMsg.style.background = 'rgba(16, 185, 129, 0.1)';
         errorMsg.style.display = 'block';
     }
 });

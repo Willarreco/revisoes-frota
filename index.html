@@ -3,9 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FROTA STRSAT">
+    <link rel="manifest" href="manifest.webmanifest">
     <title>FROTA STRSAT</title>
-    <link rel="stylesheet" href="style.css?v=3">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon-180.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -20,6 +31,7 @@
             <li class="nav-item" data-view="veiculos"><a href="#" class="nav-link"><i data-lucide="truck"></i><span>Veículos</span></a></li>
             <li class="nav-item" data-view="manutencao"><a href="#" class="nav-link"><i data-lucide="wrench"></i><span>Manutenções</span></a></li>
             <li class="nav-item" data-view="guincho"><a href="#" class="nav-link"><i data-lucide="tractor"></i><span>Guincho</span></a></li>
+            <li class="nav-item" data-view="lavagens"><a href="#" class="nav-link"><i data-lucide="droplets"></i><span>Lavagens</span></a></li>
             <li class="nav-item" data-view="relatorios"><a href="#" class="nav-link"><i data-lucide="bar-chart-3"></i><span>Relatórios</span></a></li>
             <li class="nav-item" data-view="config"><a href="#" class="nav-link"><i data-lucide="settings"></i><span>Configurações</span></a></li>
         </ul>
@@ -48,14 +60,15 @@
                 <div class="tabs mb-4" id="dashboard-tabs">
                     <button class="tab-btn active" data-dash="manutencao">🔧 Manutenções</button>
                     <button class="tab-btn" data-dash="guincho">🚛 Guincho</button>
+                    <button class="tab-btn" data-dash="lavagens">🚿 Lavagens</button>
                 </div>
 
                 <div id="dash-manutencao">
                     <div class="stats-grid">
                         <div class="card stat-card"><div class="stat-icon icon-blue"><i data-lucide="truck"></i></div><div class="stat-info"><span class="stat-value" id="stat-active">0</span><span class="stat-label">Veículos Ativos</span></div></div>
                         <div class="card stat-card"><div class="stat-icon icon-orange"><i data-lucide="settings-2"></i></div><div class="stat-info"><span class="stat-value" id="stat-maintenance">0</span><span class="stat-label">Em Manutenção</span></div></div>
-                        <div class="card stat-card"><div class="stat-icon icon-red"><i data-lucide="alert-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-overdue">0</span><span class="stat-label">Revisões Vencidas</span></div></div>
-                        <div class="card stat-card"><div class="stat-icon icon-green"><i data-lucide="calendar"></i></div><div class="stat-info"><span class="stat-value" id="stat-next">0</span><span class="stat-label">Próximas Revisões</span></div></div>
+                        <div class="card stat-card clickable" id="card-stat-overdue" title="Clique para ver veículos com revisão vencida"><div class="stat-icon icon-red"><i data-lucide="alert-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-overdue">0</span><span class="stat-label">Revisões Vencidas</span><span class="clickable-hint"><i data-lucide="info" style="width:12px;height:12px"></i> Ver detalhes</span></div></div>
+                        <div class="card stat-card clickable" id="card-stat-next" title="Clique para ver veículos próximos da revisão"><div class="stat-icon icon-green"><i data-lucide="calendar"></i></div><div class="stat-info"><span class="stat-value" id="stat-next">0</span><span class="stat-label">Próximas Revisões</span><span class="clickable-hint"><i data-lucide="info" style="width:12px;height:12px"></i> Ver detalhes</span></div></div>
                     </div>
                     <div class="charts-grid">
                         <div class="card chart-card"><div class="card-header"><h3 class="card-title">Fluxo de Custos Mensais</h3></div><canvas id="costsChart"></canvas></div>
@@ -83,6 +96,23 @@
                         <div class="table-container"><table><thead><tr><th>Data</th><th>Placa</th><th>Motorista</th><th>KM</th><th>Valor</th><th>Status</th></tr></thead><tbody id="recent-guincho"></tbody></table></div>
                     </div>
                 </div>
+
+                <div id="dash-lavagens" style="display:none">
+                    <div class="stats-grid">
+                        <div class="card stat-card"><div class="stat-icon icon-blue"><i data-lucide="droplets"></i></div><div class="stat-info"><span class="stat-value" id="stat-dash-lavagens-total">0</span><span class="stat-label">Lavagens no Mês</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-green"><i data-lucide="check-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-dash-lavagens-pagas">0</span><span class="stat-label">Pagas</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-orange"><i data-lucide="clock"></i></div><div class="stat-info"><span class="stat-value" id="stat-dash-lavagens-pendentes">0</span><span class="stat-label">Pendentes</span></div></div>
+                        <div class="card stat-card"><div class="stat-icon icon-purple"><i data-lucide="dollar-sign"></i></div><div class="stat-info"><span class="stat-value" id="stat-dash-lavagens-valor">R$ 0,00</span><span class="stat-label">Faturamento Mês</span></div></div>
+                    </div>
+                    <div class="charts-grid">
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Fluxo de Faturamento em Lavagens</h3></div><canvas id="dashLavagensCostsChart"></canvas></div>
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Distribuição por Tipo de Lavagem</h3></div><canvas id="dashLavagensTypeChart"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3 class="card-title">Últimas Lavagens Registradas</h3></div>
+                        <div class="table-container"><table><thead><tr><th>Data</th><th>Placa</th><th>Veículo</th><th>Tipo</th><th>Valor</th><th>Status</th></tr></thead><tbody id="recent-dash-lavagens"></tbody></table></div>
+                    </div>
+                </div>
             </section>
 
             <!-- VEICULOS -->
@@ -95,6 +125,7 @@
                             <button class="toggle-btn" data-mode="inativos">Inativos</button>
                         </div>
                         <div class="search-box"><input type="text" placeholder="Buscar por placa ou modelo..." class="form-input" id="search-veiculos"></div>
+                        <button class="btn btn-back" id="btn-csv-veiculos" title="Exportar frota para planilha Excel"><i data-lucide="download"></i> Exportar CSV</button>
                         <button class="btn btn-primary" id="btn-new-vehicle"><i data-lucide="plus"></i> Novo Veículo</button>
                     </div>
                 </div>
@@ -139,7 +170,7 @@
                 <div class="card mb-4">
                     <div class="form-row">
                         <div class="form-group"><label>Veículo</label><select class="form-input" id="maint-vehicle-select"></select></div>
-                        <div class="form-group"><label>KM no Momento</label><input type="number" class="form-input" placeholder="0"></div>
+                        <div class="form-group"><label>KM no Momento</label><input type="text" inputmode="decimal" class="form-input" placeholder="0"></div>
                         <div class="form-group"><label>Data</label><input type="date" class="form-input"></div>
                     </div>
                 </div>
@@ -188,6 +219,7 @@
                         </div>
                     </div>
                     <div style="display: flex; gap: 1rem; margin-top: 1rem; justify-content: flex-end;">
+                        <button class="btn btn-back" id="btn-csv-guincho"><i data-lucide="download"></i> Exportar CSV</button>
                         <button class="btn btn-back" id="btn-pdf-guincho"><i data-lucide="file-text"></i> Gerar PDF</button>
                     </div>
                 </div>
@@ -214,29 +246,95 @@
                 </div>
             </section>
 
+            <!-- LAVAGENS -->
+            <section id="lavagens" class="view-section">
+                <div class="stats-grid mb-4">
+                    <div class="card stat-card"><div class="stat-icon icon-blue"><i data-lucide="droplets"></i></div><div class="stat-info"><span class="stat-value" id="stat-lavagens-mes">0</span><span class="stat-label">Lavagens no Mês</span></div></div>
+                    <div class="card stat-card"><div class="stat-icon icon-green"><i data-lucide="check-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-lavagens-pagas">0</span><span class="stat-label">Pagas</span></div></div>
+                    <div class="card stat-card"><div class="stat-icon icon-orange"><i data-lucide="clock"></i></div><div class="stat-info"><span class="stat-value" id="stat-lavagens-pendentes">0</span><span class="stat-label">Pendentes</span></div></div>
+                    <div class="card stat-card"><div class="stat-icon icon-purple"><i data-lucide="dollar-sign"></i></div><div class="stat-info"><span class="stat-value" id="stat-lavagens-valor">R$ 0,00</span><span class="stat-label">Valor no Mês</span></div></div>
+                </div>
+
+                <div class="card-header mb-4">
+                    <h3 class="card-title">Registro de Lavagens</h3>
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        <div class="search-box"><input type="text" placeholder="Buscar por placa ou veículo..." class="form-input" id="search-lavagens"></div>
+                        <button class="btn btn-primary" id="btn-novo-lavagem"><i data-lucide="plus"></i> Nova Lavagem</button>
+                        <button class="btn btn-back" id="btn-atualizar-lavagens"><i data-lucide="refresh-cw"></i> Atualizar</button>
+                    </div>
+                </div>
+
+                <div class="card mb-4" style="padding: 1rem;">
+                    <div class="form-row">
+                        <div class="form-group"><label>Filtrar por Placa</label><input type="text" class="form-input" id="filter-lavagens-placa" placeholder="Placa"></div>
+                        <div class="form-group"><label>Filtrar por Veículo</label><input type="text" class="form-input" id="filter-lavagens-veiculo" placeholder="Modelo"></div>
+                        <div class="form-group"><label>Tipo de Lavagem</label><select class="form-input" id="filter-lavagens-tipo"><option value="">Todos</option><option value="Simples">Simples</option><option value="Completa">Completa</option><option value="Detalhamento">Detalhamento</option><option value="Lavagem de Motor">Lavagem de Motor</option></select></div>
+                        <div class="form-group"><label>Status</label><select class="form-input" id="filter-lavagens-status"><option value="">Todos</option><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></div>
+                        <div class="form-group"><label>Data da Lavagem</label><input type="date" class="form-input" id="filter-lavagens-data"></div>
+                        <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                            <button class="btn btn-primary" id="btn-filtrar-lavagens"><i data-lucide="filter"></i> Filtrar</button>
+                            <button class="btn btn-back" id="btn-limpar-filtros-lavagens"><i data-lucide="x"></i> Limpar</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem; justify-content: flex-end;">
+                        <button class="btn btn-back" id="btn-csv-lavagens"><i data-lucide="download"></i> Exportar CSV</button>
+                        <button class="btn btn-back" id="btn-pdf-lavagens"><i data-lucide="file-text"></i> Gerar PDF</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="cursor:pointer" onclick="sortLavagens('data')">Data ↕</th>
+                                    <th>Placa</th>
+                                    <th>Veículo</th>
+                                    <th>Tipo de Lavagem</th>
+                                    <th>Forma de Pagamento</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lavagens-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
             <!-- RELATORIOS -->
             <section id="relatorios" class="view-section">
                 <div class="tabs mb-4" id="relatorio-tabs">
-                    <button class="tab-btn active" data-relatorio="manutencao">Manutenções</button>
-                    <button class="tab-btn" data-relatorio="guincho">Guincho</button>
+                    <button class="tab-btn active" data-relatorio="manutencao">🔧 Manutenções</button>
+                    <button class="tab-btn" data-relatorio="guincho">🚛 Guincho</button>
+                    <button class="tab-btn" data-relatorio="lavagens">🚿 Lavagens</button>
+                    <button class="tab-btn" data-relatorio="consolidado">📊 Visão Geral Consolidada</button>
                 </div>
 
                 <!-- Relatório de Manutenções -->
                 <div id="relatorio-manutencao">
                     <div class="card mb-4">
-                        <div class="card-header"><h3 class="card-title">Filtros de Relatório</h3></div>
+                        <div class="card-header"><h3 class="card-title">Filtros de Relatório - Manutenções</h3></div>
                         <div class="form-row mt-4">
                             <div class="form-group"><label>Veículo</label><select class="form-input" id="filter-vehicle-select"></select></div>
                             <div class="form-group"><label>Início</label><input type="date" class="form-input" id="filter-start-date"></div>
                             <div class="form-group"><label>Fim</label><input type="date" class="form-input" id="filter-end-date"></div>
-                            <div class="form-group" style="display:flex; align-items:flex-end;"><button class="btn btn-primary w-100" id="btn-generate-pdf"><i data-lucide="file-text"></i> Gerar PDF</button></div>
+                            <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                                <button class="btn btn-primary" id="btn-generate-pdf" style="flex:1"><i data-lucide="file-text"></i> Gerar PDF</button>
+                                <button class="btn btn-back" id="btn-csv-manutencao" title="Exportar para Excel"><i data-lucide="download"></i> CSV</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="stats-grid">
-                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Custo Acumulado</span><span class="stat-value">R$ 0,00</span></div></div>
-                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Média por Veículo</span><span class="stat-value">R$ 0,00</span></div></div>
-                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Maior Gasto (Mês)</span><span class="stat-value">R$ 0,00</span></div></div>
-                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Total de Ordens</span><span class="stat-value">0</span></div></div>
+                    <div class="stats-grid mb-4">
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Custo Acumulado</span><span class="stat-value" id="rel-maint-custo">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Média por Ordens</span><span class="stat-value" id="rel-maint-media">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Maior Gasto Registro</span><span class="stat-value" id="rel-maint-maior">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Total de Ordens</span><span class="stat-value" id="rel-maint-total">0</span></div></div>
+                    </div>
+                    <div class="charts-grid mb-4">
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Evolução de Custos de Manutenção</h3></div><canvas id="relatorioChartManutencao"></canvas></div>
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Top 5 Veículos com Maior Custo</h3></div><canvas id="relatorioChartManutencaoTop"></canvas></div>
                     </div>
                 </div>
 
@@ -252,16 +350,75 @@
                             <div class="form-group"><label>Fim</label><input type="date" class="form-input" id="filter-rel-guincho-fim"></div>
                             <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
                                 <button class="btn btn-primary" id="btn-rel-pdf-guincho"><i data-lucide="file-text"></i> Gerar PDF</button>
+                                <button class="btn btn-back" id="btn-rel-csv-guincho" title="Exportar para Excel"><i data-lucide="download"></i> CSV</button>
                                 <button class="btn btn-back" id="btn-rel-atualizar-guincho"><i data-lucide="refresh-cw"></i> Atualizar</button>
                             </div>
                         </div>
                     </div>
-                    <div class="stats-grid">
+                    <div class="stats-grid mb-4">
                         <div class="card stat-card"><div class="stat-info"><span class="stat-label">Total Serviços</span><span class="stat-value" id="stat-rel-guincho-total">0</span></div></div>
                         <div class="card stat-card"><div class="stat-info"><span class="stat-label">Em Andamento</span><span class="stat-value" id="stat-rel-guincho-andamento">0</span></div></div>
                         <div class="card stat-card"><div class="stat-info"><span class="stat-label">Finalizados</span><span class="stat-value" id="stat-rel-guincho-finalizados">0</span></div></div>
                         <div class="card stat-card"><div class="stat-info"><span class="stat-label">KM Total</span><span class="stat-value" id="stat-rel-guincho-km">0 km</span></div></div>
                         <div class="card stat-card"><div class="stat-info"><span class="stat-label">Valor Total</span><span class="stat-value" id="stat-rel-guincho-valor">R$ 0,00</span></div></div>
+                    </div>
+                    <div class="charts-grid mb-4">
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Faturamento Mensal do Guincho</h3></div><canvas id="relatorioChartGuincho"></canvas></div>
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">KM Percorridos por Motorista</h3></div><canvas id="relatorioChartGuinchoMotorista"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Relatório de Lavagens -->
+                <div id="relatorio-lavagens" style="display:none;">
+                    <div class="card mb-4">
+                        <div class="card-header"><h3 class="card-title">Filtros de Relatório - Lavagens</h3></div>
+                        <div class="form-row mt-4">
+                            <div class="form-group"><label>Placa</label><input type="text" class="form-input" id="filter-rel-lavagens-placa" placeholder="Placa"></div>
+                            <div class="form-group"><label>Veículo</label><input type="text" class="form-input" id="filter-rel-lavagens-veiculo" placeholder="Modelo"></div>
+                            <div class="form-group"><label>Tipo de Lavagem</label><select class="form-input" id="filter-rel-lavagens-tipo"><option value="">Todos</option><option value="Simples">Simples</option><option value="Completa">Completa</option><option value="Detalhamento">Detalhamento</option><option value="Lavagem de Motor">Lavagem de Motor</option></select></div>
+                            <div class="form-group"><label>Status</label><select class="form-input" id="filter-rel-lavagens-status"><option value="">Todos</option><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></div>
+                            <div class="form-group"><label>Início</label><input type="date" class="form-input" id="filter-rel-lavagens-inicio"></div>
+                            <div class="form-group"><label>Fim</label><input type="date" class="form-input" id="filter-rel-lavagens-fim"></div>
+                            <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                                <button class="btn btn-primary" id="btn-rel-pdf-lavagens"><i data-lucide="file-text"></i> Gerar PDF</button>
+                                <button class="btn btn-back" id="btn-rel-csv-lavagens" title="Exportar para Excel"><i data-lucide="download"></i> CSV</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stats-grid mb-4">
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Total Lavagens</span><span class="stat-value" id="stat-rel-lavagens-total">0</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Pagas</span><span class="stat-value" id="stat-rel-lavagens-pagas">0</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Pendentes</span><span class="stat-value" id="stat-rel-lavagens-pendentes">0</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Valor Total</span><span class="stat-value" id="stat-rel-lavagens-valor">R$ 0,00</span></div></div>
+                    </div>
+                    <div class="charts-grid mb-4">
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Gastos com Lavagem no Tempo</h3></div><canvas id="relatorioChartLavagens"></canvas></div>
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Distribuição por Tipo de Lavagem</h3></div><canvas id="relatorioChartLavagensTipo"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Visão Geral Consolidada -->
+                <div id="relatorio-consolidado" style="display:none;">
+                    <div class="card mb-4">
+                        <div class="card-header"><h3 class="card-title">Filtro Consolidado da Frota</h3></div>
+                        <div class="form-row mt-4">
+                            <div class="form-group"><label>Início</label><input type="date" class="form-input" id="filter-rel-cons-inicio"></div>
+                            <div class="form-group"><label>Fim</label><input type="date" class="form-input" id="filter-rel-cons-fim"></div>
+                            <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                                <button class="btn btn-primary" id="btn-rel-pdf-consolidado"><i data-lucide="file-text"></i> Gerar PDF Consolidado</button>
+                                <button class="btn btn-back" id="btn-rel-csv-consolidado" title="Exportar para Excel"><i data-lucide="download"></i> CSV Consolidado</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stats-grid mb-4">
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Custo Total Frota</span><span class="stat-value" id="stat-rel-cons-total">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Gasto Manutenções</span><span class="stat-value" id="stat-rel-cons-maint">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Faturamento Guincho</span><span class="stat-value" id="stat-rel-cons-guincho">R$ 0,00</span></div></div>
+                        <div class="card stat-card"><div class="stat-info"><span class="stat-label">Gasto Lavagens</span><span class="stat-value" id="stat-rel-cons-lavagens">R$ 0,00</span></div></div>
+                    </div>
+                    <div class="charts-grid mb-4">
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Distribuição Total de Operações por Módulo</h3></div><canvas id="relatorioChartConsolidadoPie"></canvas></div>
+                        <div class="card chart-card"><div class="card-header"><h3 class="card-title">Comparativo Mensal Inter-Módulos</h3></div><canvas id="relatorioChartConsolidadoBar"></canvas></div>
                     </div>
                 </div>
             </section>
@@ -325,7 +482,7 @@
                 <div class="form-row mt-4"><div class="form-group"><label>Placa</label><input type="text" name="plate" class="form-input" required></div><div class="form-group"><label>Chassi</label><input type="text" name="chassi" class="form-input" required></div></div>
                 <div class="form-row mt-4">
                     <div class="form-group"><label>Cor</label><input type="text" name="color" class="form-input" required></div>
-                    <div class="form-group"><label>KM Inicial</label><input type="number" name="km" class="form-input"></div>
+                    <div class="form-group"><label>KM Inicial</label><input type="text" inputmode="decimal" name="km" class="form-input"></div>
                     <div class="form-group"><label>Ano</label><input type="number" name="year" class="form-input"></div>
                     <div class="form-group"><label>Status</label>
                         <select name="status" class="form-input">
@@ -404,6 +561,39 @@
         </div>
     </div>
 
+    <!-- LAVAGEM MODAL -->
+    <div id="lavagem-modal" class="modal">
+        <div class="modal-content card" style="max-width: 700px;">
+            <div class="card-header">
+                <h3 class="card-title" id="lavagem-modal-title">Nova Lavagem</h3>
+                <span class="close-modal close-lavagem-modal">&times;</span>
+            </div>
+            <form id="lavagem-form" class="mt-4">
+                <div class="form-row">
+                    <div class="form-group"><label>Placa do Veículo *</label><input type="text" id="lavagem-placa" class="form-input" placeholder="AAA0A00" required style="text-transform:uppercase"></div>
+                    <div class="form-group"><label>Veículo / Modelo</label><input type="text" id="lavagem-veiculo" class="form-input" placeholder="Ex: Strada Freedom, XRE 190..."></div>
+                </div>
+                <div class="form-row mt-4">
+                    <div class="form-group"><label>Tipo de Lavagem *</label><select id="lavagem-tipo" class="form-input" required><option value="Simples">Simples</option><option value="Completa">Completa</option><option value="Detalhamento">Detalhamento</option><option value="Lavagem de Motor">Lavagem de Motor</option></select></div>
+                    <div class="form-group"><label>Valor Cobrado (R$)</label><input type="text" inputmode="decimal" id="lavagem-valor" class="form-input" placeholder="0,00"></div>
+                    <div class="form-group"><label>Forma de Pagamento</label><select id="lavagem-pagamento" class="form-input"><option value="Dinheiro">Dinheiro</option><option value="PIX">PIX</option><option value="Cartão de Crédito">Cartão de Crédito</option><option value="Cartão de Débito">Cartão de Débito</option><option value="Boleto">Boleto</option><option value="Crédito Interno">Crédito Interno</option></select></div>
+                </div>
+                <div class="form-row mt-4">
+                    <div class="form-group"><label>Data *</label><input type="date" id="lavagem-data" class="form-input" required></div>
+                    <div class="form-group"><label>Responsável / Operador</label><input type="text" id="lavagem-responsavel" class="form-input" placeholder="Quem realizou a lavagem"></div>
+                    <div class="form-group"><label>Status</label><select id="lavagem-status" class="form-input"><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></div>
+                </div>
+                <div class="form-row mt-4">
+                    <div class="form-group" style="grid-column:1/-1"><label>Observações</label><textarea id="lavagem-observacoes" class="form-input" rows="3" placeholder="Observações sobre a lavagem..."></textarea></div>
+                </div>
+                <div class="mt-4" style="display: flex; justify-content: flex-end; gap: 1rem;">
+                    <button type="button" class="btn btn-back close-lavagem-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-salvar-lavagem"><i data-lucide="save"></i> Salvar Lavagem</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- GUINCHO MODAL -->
     <div id="guincho-modal" class="modal">
         <div class="modal-content card" style="max-width: 700px;">
@@ -418,7 +608,7 @@
                 </div>
                 <div class="form-row mt-4">
                     <div class="form-group"><label>Data/Hora Início *</label><input type="datetime-local" id="guincho-data-inicio" class="form-input" required></div>
-                    <div class="form-group"><label>Valor Cobrado (R$) *</label><input type="number" id="guincho-valor" class="form-input" placeholder="0,00" step="0.01" required></div>
+                    <div class="form-group"><label>Valor Cobrado (R$) *</label><input type="text" inputmode="decimal" id="guincho-valor" class="form-input" placeholder="0,00" required></div>
                     <div class="form-group"><label>Status</label><select id="guincho-status" class="form-input"><option value="Em Serviço">Em Serviço</option><option value="Finalizado">Finalizado</option></select></div>
                 </div>
 
@@ -433,9 +623,9 @@
 
                     <div id="guincho-km-manual">
                         <div class="form-row">
-                            <div class="form-group"><label>KM Inicial</label><input type="number" id="guincho-km-inicial" class="form-input" placeholder="0"></div>
-                            <div class="form-group"><label>KM Final</label><input type="number" id="guincho-km-final" class="form-input" placeholder="0" oninput="calcGuinchoKM()"></div>
-                            <div class="form-group"><label>KM Percorrido</label><input type="number" id="guincho-km-percorrido" class="form-input" placeholder="Calculado" readonly style="font-weight:700;color:var(--accent-color)"></div>
+                            <div class="form-group"><label>KM Inicial</label><input type="text" inputmode="decimal" id="guincho-km-inicial" class="form-input" placeholder="0" oninput="calcGuinchoKM()"></div>
+                            <div class="form-group"><label>KM Final</label><input type="text" inputmode="decimal" id="guincho-km-final" class="form-input" placeholder="0" oninput="calcGuinchoKM()"></div>
+                            <div class="form-group"><label>KM Percorrido</label><input type="text" inputmode="decimal" id="guincho-km-percorrido" class="form-input" placeholder="Calculado" readonly style="font-weight:700;color:var(--accent-color)"></div>
                         </div>
                     </div>
 
@@ -449,7 +639,7 @@
                         <div style="display:flex; gap:1rem; align-items:center; margin-top:0.5rem;">
                             <button type="button" class="btn btn-primary" id="btn-calcular-distancia"><i data-lucide="map"></i> Calcular Distância</button>
                             <span style="font-size:0.85rem; color:var(--text-secondary)">ou</span>
-                            <div class="form-group" style="margin:0;flex-grow:1"><label style="font-size:0.85rem">KM Percorrido (editar se necessário)</label><input type="number" id="guincho-km-percorrido-gps" class="form-input" placeholder="0" step="any"></div>
+                            <div class="form-group" style="margin:0;flex-grow:1"><label style="font-size:0.85rem">KM Percorrido (editar se necessário)</label><input type="text" inputmode="decimal" id="guincho-km-percorrido-gps" class="form-input" placeholder="0"></div>
                         </div>
                     </div>
                 </div>
@@ -540,10 +730,64 @@
         </div>
     </div>
 
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container"></div>
+
+    <!-- CONFIRM MODAL -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content card confirm-box">
+            <div class="confirm-icon-wrap">
+                <i data-lucide="alert-triangle" style="width: 30px; height: 30px;"></i>
+            </div>
+            <h3 id="confirm-title">Tem certeza?</h3>
+            <p id="confirm-message">Esta ação não poderá ser desfeita.</p>
+            <div class="confirm-actions">
+                <button type="button" class="btn btn-back" id="btn-confirm-cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-ok" style="background: var(--danger); border-color: var(--danger); color: #fff;">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REVISOES DETALHADAS MODAL -->
+    <div id="revisoes-modal" class="modal">
+        <div class="modal-content card" style="max-width: 760px;">
+            <div class="card-header">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <i data-lucide="alert-circle" id="revisoes-modal-icon" style="color: var(--danger); width: 24px; height: 24px;"></i>
+                    <h3 class="card-title" id="revisoes-modal-title">Veículos com Revisão Vencida</h3>
+                </div>
+                <span class="close-modal close-revisoes-modal">&times;</span>
+            </div>
+            <div class="mt-4">
+                <p id="revisoes-modal-desc" style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    Veículos que ultrapassaram a meta recomendada de revisão (10.000 km desde a última manutenção).
+                </p>
+                <div class="table-container" style="max-height: 380px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Placa</th>
+                                <th>Veículo</th>
+                                <th>KM Atual</th>
+                                <th>Última Manut.</th>
+                                <th>KM Percorrido</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="revisoes-modal-list"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="mt-4" style="display:flex; justify-content:flex-end;">
+                <button type="button" class="btn btn-back close-revisoes-modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js?v=3"></script>
     <script src="auth.js?v=3"></script>
-    <script src="script_app.js?v=14"></script>
+    <script src="script_app.js?v=21"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>

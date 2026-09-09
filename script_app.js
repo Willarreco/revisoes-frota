@@ -1,4 +1,398 @@
-let costsChart, typeChart, guinchoCostsChart, guinchoTypeChart;
+let costsChart, typeChart, guinchoCostsChart, guinchoTypeChart, dashLavagensCostsChart, dashLavagensTypeChart;
+let relChartManutencao, relChartManutencaoTop, relChartGuincho, relChartGuinchoMotorista, relChartLavagens, relChartLavagensTipo, relChartConsolidadoPie, relChartConsolidadoBar;
+
+
+function parseNum(v) {
+    if (v === null || v === undefined || v === '') return NaN;
+    let s = String(v).trim();
+    if (s.includes(',')) {
+        // pt-BR: "2.323,6" -> dots are thousands, comma is decimal
+        s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+        // no comma: keep decimal dots, remove only thousands dots ("2.323" -> 2323)
+        s = s.replace(/\.(?=\d{3}$)/g, '');
+    }
+    const n = parseFloat(s);
+    return isNaN(n) ? NaN : n;
+}
+
+function fmtKm(v) {
+    const n = parseNum(v);
+    if (isNaN(n)) return '---';
+    return n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+}
+
+function fmtNum(v) {
+    const n = parseNum(v);
+    if (isNaN(n)) return '---';
+    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// --- SISTEMA DE NOTIFICAÇÕES TOAST ---
+function showToast(message, type = 'info', duration = 3800) {
+    const container = document.getElementById('toast-container');
+    if (!container) {
+        alert(message);
+        return;
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    let iconName = 'info';
+    if (type === 'success') iconName = 'check-circle';
+    if (type === 'error') iconName = 'alert-circle';
+    if (type === 'warning') iconName = 'alert-triangle';
+
+    toast.innerHTML = `
+        <i data-lucide="${iconName}" class="toast-icon"></i>
+        <div class="toast-content">${message}</div>
+        <button type="button" class="toast-close" title="Fechar">&times;</button>
+        <div class="toast-progress" style="animation-duration: ${duration}ms;"></div>
+    `;
+
+    container.appendChild(toast);
+    if (window.lucide) lucide.createIcons();
+
+    const closeBtn = toast.querySelector('.toast-close');
+    const timer = setTimeout(dismiss, duration);
+
+    function dismiss() {
+        clearTimeout(timer);
+        toast.classList.add('toast-hide');
+        setTimeout(() => toast.remove(), 250);
+    }
+
+    closeBtn.addEventListener('click', dismiss);
+}
+window.showToast = showToast;
+
+// --- MODAL DE CONFIRMAÇÃO MODERNO ---
+function showConfirm(title, message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirm-modal');
+        if (!modal) {
+            resolve(confirm(`${title}\n\n${message}`));
+            return;
+        }
+
+        const titleEl = document.getElementById('confirm-title');
+        const messageEl = document.getElementById('confirm-message');
+        const btnOk = document.getElementById('btn-confirm-ok');
+        const btnCancel = document.getElementById('btn-confirm-cancel');
+
+        if (titleEl) titleEl.textContent = title;
+        if (messageEl) messageEl.textContent = message;
+
+        modal.style.display = 'flex';
+        if (window.lucide) lucide.createIcons();
+
+        function cleanup(result) {
+            modal.style.display = 'none';
+            btnOk.removeEventListener('click', onOk);
+            btnCancel.removeEventListener('click', onCancel);
+            resolve(result);
+        }
+
+        function onOk() { cleanup(true); }
+        function onCancel() { cleanup(false); }
+
+        btnOk.addEventListener('click', onOk);
+        btnCancel.addEventListener('click', onCancel);
+    });
+}
+window.showConfirm = showConfirm;
+
+// --- EXPORTAÇÃO UNIVERSAL PARA CSV / EXCEL (PT-BR) ---
+function exportToCSV(filename, headers, rows) {
+    if (!rows || rows.length === 0) {
+        showToast('Nenhum dado disponível para exportação.', 'warning');
+        return;
+    }
+
+    const csvRows = [];
+    csvRows.push(headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(';'));
+
+    rows.forEach(row => {
+        csvRows.push(row.map(val => {
+            if (val === null || val === undefined) return '""';
+            return `"${String(val).replace(/"/g, '""')}"`;
+        }).join(';'));
+    });
+
+    const csvContent = '\uFEFF' + csvRows.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`Arquivo "${filename}.csv" exportado com sucesso!`, 'success');
+}
+window.exportToCSV = exportToCSV;
+
+// --- MOTOR UNIVERSAL DE GERAÇÃO DE PDF PROFISSIONAL (STRSAT) ---
+function gerarPDFProfissional({ titulo, subtitulo, kpis = [], headers = [], rows = [], totalLabel = null, totalValue = null }) {
+    if (!rows || rows.length === 0) {
+        showToast('Nenhum dado encontrado para gerar o PDF.', 'warning');
+        return;
+    }
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+        showToast('Permita janelas pop-up para abrir o documento PDF.', 'error');
+        return;
+    }
+
+    const kpiHtml = kpis.map(kpi => `
+        <div class="kpi-card">
+            <div class="kpi-label">${kpi.label}</div>
+            <div class="kpi-value">${kpi.value}</div>
+        </div>
+    `).join('');
+
+    const headersHtml = headers.map(h => `<th>${h}</th>`).join('');
+    const rowsHtml = rows.map(r => `
+        <tr>
+            ${r.map((cell, idx) => {
+                const text = cell !== null && cell !== undefined ? String(cell) : '---';
+                let align = 'left';
+                if (text.startsWith('R$') || text.endsWith('km') || /^\d+$/.test(text)) {
+                    align = 'right';
+                }
+                if (['Pago', 'Finalizado', 'Ativo', 'Operacional'].includes(text)) {
+                    return `<td style="text-align: center;"><span class="badge badge-success">${text}</span></td>`;
+                }
+                if (['Pendente', 'Em Serviço', 'Em Manutenção'].includes(text)) {
+                    return `<td style="text-align: center;"><span class="badge badge-warning">${text}</span></td>`;
+                }
+                if (['Inativo', 'Cancelado'].includes(text)) {
+                    return `<td style="text-align: center;"><span class="badge badge-danger">${text}</span></td>`;
+                }
+                return `<td style="text-align: ${align};">${text}</td>`;
+            }).join('')}
+        </tr>
+    `).join('');
+
+    const totalBarHtml = (totalLabel && totalValue !== null) ? `
+        <div class="total-bar">
+            <span>${totalLabel}</span>
+            <span>${totalValue}</span>
+        </div>
+    ` : '';
+
+    const html = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <title>${titulo} - FROTA STRSAT</title>
+            <style>
+                @page { size: A4 portrait; margin: 12mm; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                    color: #1e293b;
+                    margin: 0;
+                    padding: 20px;
+                    background: #ffffff;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                .header-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    border-bottom: 3px solid #3b82f6;
+                    padding-bottom: 12px;
+                    margin-bottom: 20px;
+                }
+                .brand-title {
+                    font-size: 22px;
+                    font-weight: 800;
+                    color: #0f172a;
+                    letter-spacing: 0.5px;
+                }
+                .brand-sub {
+                    font-size: 11px;
+                    color: #3b82f6;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+                .doc-info {
+                    text-align: right;
+                    font-size: 11px;
+                    color: #64748b;
+                    line-height: 1.5;
+                }
+                .report-title {
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: #1e293b;
+                    margin: 0 0 4px 0;
+                }
+                .report-sub {
+                    font-size: 12px;
+                    color: #64748b;
+                    margin: 0 0 18px 0;
+                }
+                .kpi-container {
+                    display: flex;
+                    gap: 12px;
+                    margin-bottom: 20px;
+                }
+                .kpi-card {
+                    flex: 1;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    padding: 10px 12px;
+                    text-align: center;
+                }
+                .kpi-label {
+                    font-size: 10px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    color: #64748b;
+                    font-weight: 600;
+                    margin-bottom: 4px;
+                }
+                .kpi-value {
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: #0f172a;
+                }
+                table.data-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                    font-size: 11px;
+                }
+                table.data-table th {
+                    background: #0f172a;
+                    color: #ffffff;
+                    padding: 9px 8px;
+                    text-align: left;
+                    font-weight: 600;
+                    font-size: 10px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                table.data-table td {
+                    padding: 8px;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                table.data-table tr:nth-child(even) {
+                    background-color: #f8fafc;
+                }
+                .badge {
+                    padding: 3px 8px;
+                    border-radius: 12px;
+                    font-size: 10px;
+                    font-weight: 700;
+                    display: inline-block;
+                }
+                .badge-success { background: #dcfce7; color: #166534; }
+                .badge-warning { background: #fef3c7; color: #92400e; }
+                .badge-danger { background: #fee2e2; color: #991b1b; }
+                .total-bar {
+                    margin-top: 18px;
+                    padding: 12px 16px;
+                    background: #eff6ff;
+                    border: 1px solid #bfdbfe;
+                    border-radius: 8px;
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 14px;
+                    font-weight: 700;
+                    color: #1e40af;
+                }
+                .signature-box {
+                    margin-top: 40px;
+                    display: flex;
+                    justify-content: space-between;
+                }
+                .sig-line {
+                    width: 42%;
+                    border-top: 1px solid #94a3b8;
+                    text-align: center;
+                    padding-top: 6px;
+                    font-size: 10px;
+                    color: #64748b;
+                    font-weight: 600;
+                }
+                .footer {
+                    margin-top: 30px;
+                    border-top: 1px solid #e2e8f0;
+                    padding-top: 12px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 10px;
+                    color: #94a3b8;
+                }
+            </style>
+        </head>
+        <body>
+            <table class="header-table">
+                <tr>
+                    <td>
+                        <div class="brand-sub">SISTEMA DE GESTÃO DE FROTA</div>
+                        <div class="brand-title">FROTA STRSAT</div>
+                    </td>
+                    <td class="doc-info">
+                        <strong>DATA DE EMISSÃO:</strong> ${new Date().toLocaleString('pt-BR')}<br>
+                        <strong>SISTEMA:</strong> REVISÕES & FROTA V2.0
+                    </td>
+                </tr>
+            </table>
+
+            <h2 class="report-title">${titulo}</h2>
+            ${subtitulo ? `<p class="report-sub">${subtitulo}</p>` : ''}
+
+            ${kpis.length > 0 ? `<div class="kpi-container">${kpiHtml}</div>` : ''}
+
+            <table class="data-table">
+                <thead>
+                    <tr>${headersHtml}</tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+
+            ${totalBarHtml}
+
+            <div class="signature-box">
+                <div class="sig-line">Responsável Operacional</div>
+                <div class="sig-line">Gerência de Frota</div>
+            </div>
+
+            <div class="footer">
+                <span>FROTA STRSAT - Documento impresso oficialmente.</span>
+                <span>Página 1 de 1</span>
+            </div>
+
+            <script>
+                window.onload = function() {
+                    setTimeout(function() {
+                        window.print();
+                    }, 350);
+                }
+            </script>
+        </body>
+        </html>
+    `;
+
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
+}
+window.gerarPDFProfissional = gerarPDFProfissional;
+
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- THEME & COLORS ---
@@ -323,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
             modelo: data.model,
             cor: data.color,
             ano: parseInt(data.year) || null,
-            km_atual: parseInt(data.km) || 0,
+            km_atual: parseNum(data.km) || 0,
             status: data.status,
             user_id: user.id
         };
@@ -403,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${v.brand}</td>
                 <td>${v.model}</td>
                 <td>${v.year}</td>
-                <td>${v.km.toLocaleString()} km</td>
+                <td>${fmtKm(v.km)} km</td>
                 <td><span class="badge ${v.status === 'Ativo' ? 'badge-active' : v.status === 'Inativo' ? 'badge-inactive' : 'badge-maintenance'}" style="cursor:pointer" onclick="event.stopPropagation(); showVehicleDetails(vehicles.find(x=>x.id==='${v.id}'))">${v.status}</span></td>
                 <td>
                     <div style="display: flex; gap: 0.5rem;">
@@ -428,28 +822,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.deleteVehicle = async (id) => {
-        if (confirm('Desativar este veículo? Ele ficará na aba de Inativos.')) {
+        const confirmed = await showConfirm('Desativar Veículo', 'Deseja desativar este veículo? Ele será movido para a aba de Inativos.');
+        if (confirmed) {
             try {
                 const { error } = await window.supabaseClient
                     .from('veiculos')
                     .update({ status: 'Inativo' })
                     .eq('id', id);
                 if (error) throw error;
+                showToast('Veículo movido para inativos com sucesso!', 'success');
                 await fetchInitialData();
             } catch (error) {
-                alert('Erro ao desativar veículo: ' + error.message);
+                showToast('Erro ao desativar veículo: ' + error.message, 'error');
             }
         }
     };
 
     window.reactivateVehicle = async (id) => {
-        if (confirm('Reativar este veículo?')) {
+        const confirmed = await showConfirm('Reativar Veículo', 'Deseja reativar este veículo e trazê-lo de volta à frota ativa?');
+        if (confirmed) {
             try {
                 const { error } = await window.supabaseClient
                     .from('veiculos')
                     .update({ status: 'Ativo' })
                     .eq('id', id);
                 if (error) throw error;
+                showToast('Veículo reativado com sucesso!', 'success');
                 await fetchInitialData();
 
                 document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
@@ -457,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentViewMode = 'ativos';
                 renderVehicles(document.getElementById('search-veiculos')?.value || '');
             } catch (error) {
-                alert('Erro ao reativar veículo: ' + error.message);
+                showToast('Erro ao reativar veículo: ' + error.message, 'error');
             }
         }
     };
@@ -547,7 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = {
             model: fd.get('model'), brand: fd.get('brand'), plate: fd.get('plate'),
             chassi: fd.get('chassi'), color: fd.get('color'), year: fd.get('year'),
-            km: parseInt(fd.get('km')) || 0, status: fd.get('status') || 'Ativo'
+            km: parseNum(fd.get('km')) || 0, status: fd.get('status') || 'Ativo'
         };
 
         try {
@@ -592,7 +990,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.deleteActivity = async (index) => {
-        if (confirm('Excluir este registro de manutenção?')) {
+        const confirmed = await showConfirm('Excluir Manutenção', 'Deseja realmente excluir este registro de manutenção?');
+        if (confirmed) {
             try {
                 const activity = activities[index];
                 const { error } = await window.supabaseClient
@@ -600,9 +999,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     .delete()
                     .eq('id', activity.id);
                 if (error) throw error;
+                showToast('Manutenção excluída com sucesso!', 'success');
                 await fetchInitialData();
             } catch (error) {
-                alert('Erro ao excluir: ' + error.message);
+                showToast('Erro ao excluir: ' + error.message, 'error');
             }
         }
     };
@@ -614,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (s.isEditing) {
                 tr.innerHTML = `
                     <td><input type="text" class="form-input" value="${s.desc}" placeholder="Ex: Troca de Óleo" oninput="updateMaintItem('service',${i},'desc',this.value)"></td>
-                    <td><input type="number" class="form-input" value="${s.price === 0 ? '' : s.price}" placeholder="0.00" oninput="updateMaintItem('service',${i},'price',this.value)"></td>
+                    <td><input type="text" inputmode="decimal" class="form-input" value="${s.price === 0 ? '' : fmtNum(s.price)}" placeholder="0,00" oninput="updateMaintItem('service',${i},'price',this.value)"></td>
                     <td>
                         <div style="display: flex; gap: 0.5rem;">
                             <button type="button" class="btn-icon text-success" onclick="toggleMaintEdit('service',${i},false)"><i data-lucide="check"></i></button>
@@ -641,7 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (p.isEditing) {
                 tr.innerHTML = `
                     <td><input type="text" class="form-input" value="${p.desc}" placeholder="Ex: Filtro de Óleo" oninput="updateMaintItem('part',${i},'desc',this.value)"></td>
-                    <td><input type="number" class="form-input" value="${p.price === 0 ? '' : p.price}" placeholder="0.00" oninput="updateMaintItem('part',${i},'price',this.value)"></td>
+                    <td><input type="text" inputmode="decimal" class="form-input" value="${p.price === 0 ? '' : fmtNum(p.price)}" placeholder="0,00" oninput="updateMaintItem('part',${i},'price',this.value)"></td>
                     <td>
                         <div style="display: flex; gap: 0.5rem;">
                             <button type="button" class="btn-icon text-success" onclick="toggleMaintEdit('part',${i},false)"><i data-lucide="check"></i></button>
@@ -674,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.updateMaintItem = (t, i, f, v) => {
         const list = t === 'service' ? currentServices : currentParts;
-        list[i][f] = f === 'price' ? (parseFloat(v) || 0) : v;
+        list[i][f] = f === 'price' ? (parseNum(v) || 0) : v;
         const total = currentServices.reduce((s,x)=>s+x.price,0) + currentParts.reduce((s,x)=>s+x.price,0);
         document.getElementById('maint-total-price').textContent = `R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
     };
@@ -687,12 +1087,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('save-maintenance')?.addEventListener('click', async () => {
         const vId = document.getElementById('maint-vehicle-select').value;
         const vehicle = vehicles.find(v => v.id == vId);
-        const km = parseInt(document.querySelector('#manutencao input[placeholder="0"]').value);
+        const km = parseNum(document.querySelector('#manutencao input[placeholder="0"]').value);
         const date = document.querySelector('#manutencao input[type="date"]').value;
 
-        if (!vId) return alert('Selecione um veículo.');
+        if (!vId) return showToast('Selecione um veículo.', 'warning');
         const total = currentServices.reduce((s,x)=>s+x.price,0) + currentParts.reduce((s,x)=>s+x.price,0);
-        if (total === 0) return alert('Adicione itens.');
+        if (total === 0) return showToast('Adicione pelo menos um serviço ou peça com valor.', 'warning');
 
         try {
             const { data: { user } } = await window.supabaseClient.auth.getUser();
@@ -738,10 +1138,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             await fetchInitialData();
             currentServices = []; currentParts = []; renderMaintItems();
-            alert('Registro salvo com sucesso!');
+            showToast('Registro de manutenção salvo com sucesso!', 'success');
             navigateTo('dashboard');
         } catch (error) {
-            alert('Erro ao salvar manutenção: ' + error.message);
+            showToast('Erro ao salvar manutenção: ' + error.message, 'error');
         }
     });
 
@@ -824,19 +1224,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listener for Save on Config page
     btnSaveApiKey?.addEventListener('click', () => {
         const key = geminiKeyInput.value.trim().replace(/^["']|["']$/g, '');
-        if (!key) return alert('Por favor, digite uma chave de API válida.');
+        if (!key) return showToast('Por favor, digite uma chave de API válida.', 'warning');
         geminiApiKey = key;
         localStorage.setItem('gemini_api_key', key);
         initGeminiKeyUI();
-        alert('Chave API do Gemini salva com sucesso!');
+        showToast('Chave API do Gemini salva com sucesso!', 'success');
     });
 
     // Event listener for Clear on Config page
-    btnRemoveApiKey?.addEventListener('click', () => {
-        if (confirm('Deseja remover a chave de API salva?')) {
+    btnRemoveApiKey?.addEventListener('click', async () => {
+        const confirmed = await showConfirm('Remover Chave', 'Deseja remover a chave de API do Gemini salva neste navegador?');
+        if (confirmed) {
             geminiApiKey = '';
             localStorage.removeItem('gemini_api_key');
             initGeminiKeyUI();
+            showToast('Chave API removida com sucesso.', 'info');
         }
     });
 
@@ -850,11 +1252,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save key in Modal and open file selector
     btnSaveModalKey?.addEventListener('click', () => {
         const key = modalKeyInput.value.trim().replace(/^["']|["']$/g, '');
-        if (!key) return alert('Por favor, insira uma chave de API.');
+        if (!key) return showToast('Por favor, insira uma chave de API.', 'warning');
         geminiApiKey = key;
         localStorage.setItem('gemini_api_key', key);
         initGeminiKeyUI();
         if (geminiKeyModal) geminiKeyModal.style.display = 'none';
+        showToast('Chave salva! Selecione a imagem do orçamento.', 'info');
         
         // Open file dialog immediately
         quoteFileInput.click();
@@ -898,11 +1301,11 @@ document.addEventListener('DOMContentLoaded', () => {
             fillMaintenanceForm(result);
             
             if (processingOverlay) processingOverlay.style.display = 'none';
-            alert('Orçamento lido com sucesso! Itens e dados preenchidos no formulário.');
+            showToast('Orçamento lido com sucesso! Dados preenchidos no formulário.', 'success');
         } catch (error) {
             if (processingOverlay) processingOverlay.style.display = 'none';
             console.error('Erro na leitura do orçamento:', error);
-            alert('Erro ao ler orçamento: ' + error.message);
+            showToast('Erro ao ler orçamento: ' + error.message, 'error');
         }
     });
 
@@ -1299,7 +1702,7 @@ Instruções importantes:
         document.getElementById('detail-model').textContent = v.model;
         document.getElementById('detail-brand').textContent = `${v.brand} • ${v.year} • ${v.color} • Chassi: ${v.chassi}`;
         document.querySelector('.plate-badge').textContent = v.plate;
-        document.getElementById('detail-km').textContent = `${v.km.toLocaleString()} km`;
+        document.getElementById('detail-km').textContent = `${fmtKm(v.km)} km`;
 
         const history = document.getElementById('vehicle-history');
         const hData = v.history || [];
@@ -1323,7 +1726,7 @@ Instruções importantes:
                         <tr style="border-bottom:1px solid var(--border-color)">
                             <td style="padding:0.5rem;white-space:nowrap">${h.date}</td>
                             <td style="padding:0.5rem">${h.service}</td>
-                            <td style="padding:0.5rem">${h.km ? h.km.toLocaleString() + ' km' : '---'}</td>
+                            <td style="padding:0.5rem">${h.km ? fmtKm(h.km) + ' km' : '---'}</td>
                             <td style="padding:0.5rem;text-align:right;font-weight:600">R$ ${h.cost.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
                         </tr>`).join('')}
                     </tbody>
@@ -1369,21 +1772,34 @@ Instruções importantes:
         dataContainer.style.display = 'none';
 
         document.getElementById('loc-placa').textContent = plate;
-        document.getElementById('loc-apelido').textContent = apelido || 'Veículo';
-        
-        const token = await getAstransatToken();
-        if (!token) {
-            loading.innerHTML = '<p class="text-danger" style="margin-top: 1rem;">Erro de autenticação com o satélite.</p>';
-            return;
-        }
-
         try {
             const cleanPlate = plate.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-            const res = await fetch(`https://posicoesgetrak.astransat.com.br/localizacao/${cleanPlate}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error('Não foi possível obter a localização');
-            const result = await res.json();
+            let result = null;
+
+            // 1. Tentar proxy serverless na Vercel (protegendo credenciais)
+            try {
+                const proxyRes = await fetch(`/api/telemetria?placa=${cleanPlate}`);
+                if (proxyRes.ok) {
+                    result = await proxyRes.json();
+                }
+            } catch (e) {
+                // Fallback para chamada direta
+            }
+
+            // 2. Fallback direto se o proxy não estiver disponível (ex: teste local offline)
+            if (!result) {
+                const token = await getAstransatToken();
+                if (!token) {
+                    loading.innerHTML = '<p class="text-danger" style="margin-top: 1rem;">Erro de autenticação com o satélite.</p>';
+                    return;
+                }
+                const res = await fetch(`https://posicoesgetrak.astransat.com.br/localizacao/${cleanPlate}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Não foi possível obter a localização');
+                result = await res.json();
+            }
+
             const arrayData = result.dados || result.veiculos;
             
             if (!arrayData || arrayData.length === 0) {
@@ -1454,6 +1870,455 @@ Instruções importantes:
         if (loading) loading.innerHTML = '<i data-lucide="loader-2" class="spin-icon" style="animation: spin 1s linear infinite; width: 40px; height: 40px; margin-bottom: 1rem; color: var(--accent-color);"></i><p>Buscando comunicação com o satélite...</p>';
     });
 
+    // ======================== LAVAGENS MODULE ========================
+    let lavagensList = [];
+    let lavagemEditingId = null;
+    let lavagemSortField = 'data';
+    let lavagemSortAsc = false;
+
+    async function fetchLavagensData() {
+        try {
+            const { data, error } = await window.supabaseClient
+                .from('lavagens')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            lavagensList = data || [];
+            renderLavagensTable();
+            updateLavagensStats();
+        } catch (error) {
+            console.error('Erro ao carregar lavagens:', error.message);
+        }
+    }
+
+    function updateLavagensStats() {
+        const now = new Date();
+        const monthItems = lavagensList.filter(l => {
+            const d = new Date(l.data);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+        const pagas = monthItems.filter(l => l.status === 'Pago').length;
+        const pendentes = monthItems.filter(l => l.status === 'Pendente').length;
+        const valorMes = monthItems.reduce((s, l) => s + (parseNum(l.valor) || 0), 0);
+
+        // Aba Lavagens (Módulo)
+        const elMes = document.getElementById('stat-lavagens-mes');
+        if (elMes) elMes.textContent = monthItems.length;
+        const elPagas = document.getElementById('stat-lavagens-pagas');
+        if (elPagas) elPagas.textContent = pagas;
+        const elPend = document.getElementById('stat-lavagens-pendentes');
+        if (elPend) elPend.textContent = pendentes;
+        const elVal = document.getElementById('stat-lavagens-valor');
+        if (elVal) elVal.textContent = `R$ ${valorMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+        // Dashboard (Aba Lavagens)
+        const dTotal = document.getElementById('stat-dash-lavagens-total');
+        if (dTotal) dTotal.textContent = monthItems.length;
+        const dPagas = document.getElementById('stat-dash-lavagens-pagas');
+        if (dPagas) dPagas.textContent = pagas;
+        const dPend = document.getElementById('stat-dash-lavagens-pendentes');
+        if (dPend) dPend.textContent = pendentes;
+        const dVal = document.getElementById('stat-dash-lavagens-valor');
+        if (dVal) dVal.textContent = `R$ ${valorMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+        renderRecentDashLavagens();
+        updateDashLavagensCharts();
+    }
+
+    function renderRecentDashLavagens() {
+        const tbody = document.getElementById('recent-dash-lavagens');
+        if (!tbody) return;
+
+        const recent = [...lavagensList]
+            .sort((a, b) => new Date(b.data || b.created_at) - new Date(a.data || a.created_at))
+            .slice(0, 8);
+
+        tbody.innerHTML = recent.length === 0
+            ? '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--text-secondary)">Nenhuma lavagem registrada até o momento.</td></tr>'
+            : '';
+
+        recent.forEach(l => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="white-space:nowrap">${l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '---'}</td>
+                <td style="font-weight:700;color:var(--primary)">${l.placa || '---'}</td>
+                <td>${l.veiculo || '---'}</td>
+                <td><span class="badge" style="background:rgba(59,130,246,0.15);color:var(--accent-color)">${l.tipo_lavagem || '---'}</span></td>
+                <td style="font-weight:700;color:var(--success)">R$ ${(parseNum(l.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td><span class="badge ${l.status === 'Pago' ? 'badge-active' : 'badge-maintenance'}">${l.status}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function updateDashLavagensCharts() {
+        const costsCtx = document.getElementById('dashLavagensCostsChart');
+        const typeCtx = document.getElementById('dashLavagensTypeChart');
+        if (!costsCtx || !typeCtx) return;
+
+        const monthly = new Array(12).fill(0);
+        const typeCounts = {
+            'Simples': 0,
+            'Completa': 0,
+            'Detalhamento': 0,
+            'Lavagem de Motor': 0
+        };
+
+        lavagensList.forEach(l => {
+            if (l.data) {
+                const d = new Date(l.data);
+                const month = d.getMonth();
+                monthly[month] += (parseNum(l.valor) || 0);
+            }
+            const t = l.tipo_lavagem;
+            if (typeCounts.hasOwnProperty(t)) {
+                typeCounts[t] += (parseNum(l.valor) || 0);
+            }
+        });
+
+        if (dashLavagensCostsChart) dashLavagensCostsChart.destroy();
+        dashLavagensCostsChart = new Chart(costsCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+                datasets: [{
+                    label: 'Faturamento R$',
+                    data: monthly,
+                    backgroundColor: 'rgba(6, 182, 212, 0.6)',
+                    borderColor: '#06b6d4',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => `R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#94a3b8', callback: (v) => 'R$ ' + v.toLocaleString() }
+                    },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+
+        if (dashLavagensTypeChart) dashLavagensTypeChart.destroy();
+        const totalTypes = Object.values(typeCounts).reduce((a, b) => a + b, 0);
+        const hasData = totalTypes > 0;
+
+        dashLavagensTypeChart = new Chart(typeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: hasData ? Object.keys(typeCounts) : ['Sem dados'],
+                datasets: [{
+                    data: hasData ? Object.values(typeCounts) : [1],
+                    backgroundColor: hasData ? ['#3b82f6', '#10b981', '#f59e0b', '#ec4899'] : ['#1e293b'],
+                    borderWidth: 0,
+                    hoverOffset: hasData ? 8 : 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 12, font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.label}: R$ ${(ctx.raw || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                        }
+                    }
+                },
+                cutout: '68%'
+            }
+        });
+    }
+
+    function getFilteredLavagens() {
+        const placa = (document.getElementById('filter-lavagens-placa').value || '').toUpperCase();
+        const veiculo = (document.getElementById('filter-lavagens-veiculo').value || '').toLowerCase();
+        const tipo = document.getElementById('filter-lavagens-tipo').value;
+        const status = document.getElementById('filter-lavagens-status').value;
+        const data = document.getElementById('filter-lavagens-data').value;
+        const search = (document.getElementById('search-lavagens').value || '').toLowerCase();
+
+        return lavagensList.filter(l => {
+            if (placa && !l.placa.toUpperCase().includes(placa)) return false;
+            if (veiculo && (!l.veiculo || !l.veiculo.toLowerCase().includes(veiculo))) return false;
+            if (tipo && l.tipo_lavagem !== tipo) return false;
+            if (status && l.status !== status) return false;
+            if (search && !l.placa.toLowerCase().includes(search) && (!l.veiculo || !l.veiculo.toLowerCase().includes(search))) return false;
+            if (data && l.data && l.data.slice(0, 10) !== data) return false;
+            return true;
+        });
+    }
+
+    window.sortLavagens = (field) => {
+        if (lavagemSortField === field) lavagemSortAsc = !lavagemSortAsc;
+        else { lavagemSortField = field; lavagemSortAsc = true; }
+        renderLavagensTable();
+    };
+
+    function renderLavagensTable() {
+        const tbody = document.getElementById('lavagens-list');
+        if (!tbody) return;
+
+        const filtered = getFilteredLavagens();
+        const sorted = [...filtered].sort((a, b) => {
+            let va = a[lavagemSortField] || '';
+            let vb = b[lavagemSortField] || '';
+            if (lavagemSortField === 'data' || lavagemSortField === 'created_at') {
+                va = new Date(va).getTime();
+                vb = new Date(vb).getTime();
+            } else if (lavagemSortField === 'valor') {
+                va = parseNum(va) || 0;
+                vb = parseNum(vb) || 0;
+            }
+            return lavagemSortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+        });
+
+        tbody.innerHTML = sorted.length === 0
+            ? '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhuma lavagem encontrada.</td></tr>'
+            : '';
+
+        sorted.forEach(l => {
+            const tr = document.createElement('tr');
+            const isPago = l.status === 'Pago';
+            tr.innerHTML = `
+                <td style="white-space:nowrap">${l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '---'}</td>
+                <td style="font-weight:700;color:var(--primary)">${l.placa}</td>
+                <td>${l.veiculo || '---'}</td>
+                <td>${l.tipo_lavagem || '---'}</td>
+                <td>${l.forma_pagamento || '---'}</td>
+                <td style="font-weight:700;color:var(--success)">R$ ${(parseNum(l.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                <td><span class="badge ${isPago ? 'badge-active' : 'badge-maintenance'}" style="cursor:pointer" onclick="toggleStatusLavagem('${l.id}')" title="Clique para alternar">${l.status}</span></td>
+                <td>
+                    <div style="display:flex;gap:0.3rem">
+                        <button class="btn-icon" title="Editar" onclick="editarLavagem('${l.id}')"><i data-lucide="edit-2" class="text-primary"></i></button>
+                        <button class="btn-icon" title="Excluir" onclick="excluirLavagem('${l.id}')"><i data-lucide="trash-2" class="text-danger"></i></button>
+                        <button class="btn btn-sm btn-back" title="Visualizar" onclick="verDetalhesLavagem('${l.id}')" style="padding:0.25rem 0.6rem;font-size:0.75rem;gap:0.3rem">
+                            <i data-lucide="eye" style="width:14px;height:14px"></i> Visualizar
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function openLavagemModal(lavagem = null) {
+        lavagemEditingId = lavagem ? lavagem.id : null;
+        document.getElementById('lavagem-modal-title').textContent = lavagem ? 'Editar Lavagem' : 'Nova Lavagem';
+        document.getElementById('btn-salvar-lavagem').textContent = lavagem ? 'Salvar Alterações' : 'Salvar Lavagem';
+        document.getElementById('lavagem-form').reset();
+
+        if (lavagem) {
+            document.getElementById('lavagem-placa').value = lavagem.placa || '';
+            document.getElementById('lavagem-veiculo').value = lavagem.veiculo || '';
+            document.getElementById('lavagem-tipo').value = lavagem.tipo_lavagem || 'Simples';
+            document.getElementById('lavagem-valor').value = (lavagem.valor != null && lavagem.valor !== '' && !isNaN(parseNum(lavagem.valor))) ? (parseNum(lavagem.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})) : '';
+            document.getElementById('lavagem-pagamento').value = lavagem.forma_pagamento || 'Dinheiro';
+            document.getElementById('lavagem-responsavel').value = lavagem.responsavel || '';
+            document.getElementById('lavagem-status').value = lavagem.status || 'Pago';
+            document.getElementById('lavagem-observacoes').value = lavagem.observacoes || '';
+            if (lavagem.data) {
+                const d = new Date(lavagem.data);
+                document.getElementById('lavagem-data').value = d.toISOString().slice(0, 10);
+            }
+        } else {
+            document.getElementById('lavagem-data').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('lavagem-status').value = 'Pago';
+        }
+
+        document.getElementById('lavagem-modal').style.display = 'flex';
+    }
+
+    window.editarLavagem = (id) => {
+        const lv = lavagensList.find(l => l.id === id);
+        if (lv) openLavagemModal(lv);
+    };
+
+    window.verDetalhesLavagem = (id) => {
+        const l = lavagensList.find(x => x.id === id);
+        if (!l) return;
+        alert(
+            `Lavagem - ${l.placa}${l.veiculo ? ' (' + l.veiculo + ')' : ''}\n\n` +
+            `Data: ${l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '---'}\n` +
+            `Tipo: ${l.tipo_lavagem || '---'}\n` +
+            `Valor: R$ ${(parseNum(l.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}\n` +
+            `Pagamento: ${l.forma_pagamento || '---'}\n` +
+            `Responsável: ${l.responsavel || '---'}\n` +
+            `Status: ${l.status}\n` +
+            (l.observacoes ? `\nObservações:\n${l.observacoes}` : '')
+        );
+    };
+
+    window.toggleStatusLavagem = async (id) => {
+        const l = lavagensList.find(x => x.id === id);
+        if (!l) return;
+        const novo = l.status === 'Pago' ? 'Pendente' : 'Pago';
+        const confirmed = await showConfirm('Alterar Status', `Deseja alterar o status de pagamento desta lavagem para "${novo}"?`);
+        if (!confirmed) return;
+        try {
+            const { error } = await window.supabaseClient
+                .from('lavagens')
+                .update({ status: novo })
+                .eq('id', id);
+            if (error) throw error;
+            showToast(`Status alterado para "${novo}".`, 'success');
+            await fetchLavagensData();
+        } catch (error) {
+            showToast('Erro ao atualizar status: ' + error.message, 'error');
+        }
+    };
+
+    window.excluirLavagem = async (id) => {
+        const confirmed = await showConfirm('Excluir Lavagem', 'Deseja excluir permanentemente este registro de lavagem?');
+        if (!confirmed) return;
+        try {
+            const { error } = await window.supabaseClient
+                .from('lavagens')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+            showToast('Lavagem excluída com sucesso!', 'success');
+            await fetchLavagensData();
+        } catch (error) {
+            showToast('Erro ao excluir: ' + error.message, 'error');
+        }
+    };
+
+    window.gerarPDFLavagens = () => {
+        const filtered = getFilteredLavagens();
+        if (filtered.length === 0) return showToast('Nenhuma lavagem encontrada para gerar PDF.', 'warning');
+
+        const pagas = filtered.filter(l => l.status === 'Pago').length;
+        const pendentes = filtered.filter(l => l.status === 'Pendente').length;
+        const valorTotal = filtered.reduce((s, l) => s + (parseNum(l.valor) || 0), 0);
+
+        const printWin = window.open('', '_blank');
+        let html = `
+            <html><head><title>Relatório de Lavagens - FROTA STRSAT</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; }
+                .header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
+                h1 { color: #1e293b; margin: 0; font-size: 1.5rem; }
+                .logo { font-size: 2rem; margin-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th { background: #f1f5f9; text-align: left; padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; }
+                td { padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; }
+                .footer { margin-top: 30px; text-align: right; font-size: 1.1rem; font-weight: bold; }
+                .date { font-size: 0.85rem; color: #64748b; }
+                .resumo { display: flex; gap: 20px; margin-bottom: 20px; }
+                .resumo-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; flex: 1; text-align: center; }
+                .resumo-item strong { display: block; font-size: 1.3rem; color: #1e293b; }
+            </style>
+            </head><body>
+            <div class="header">
+                <h1>FROTA STRSAT - Relatório de Lavagens</h1>
+                <p class="date">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+            </div>
+            <div class="resumo">
+                <div class="resumo-item">Total Lavagens<strong>${filtered.length}</strong></div>
+                <div class="resumo-item">Pagas<strong>${pagas}</strong></div>
+                <div class="resumo-item">Pendentes<strong>${pendentes}</strong></div>
+                <div class="resumo-item">Valor Total<strong>R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong></div>
+            </div>
+            <table>
+                <thead><tr><th>Data</th><th>Placa</th><th>Veículo</th><th>Tipo</th><th>Pagamento</th><th>Valor</th><th>Status</th><th>Responsável</th></tr></thead>
+                <tbody>${filtered.map(l => `<tr>
+                    <td>${l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '---'}</td>
+                    <td><b>${l.placa}</b></td>
+                    <td>${l.veiculo || '---'}</td>
+                    <td>${l.tipo_lavagem}</td>
+                    <td>${l.forma_pagamento || '---'}</td>
+                    <td>R$ ${(parseNum(l.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                    <td>${l.status}</td>
+                    <td>${l.responsavel || '---'}</td>
+                </tr>`).join('')}</tbody>
+            </table>
+            <div class="footer"><p>Relatório gerado automaticamente - FROTA STRSAT &copy; ${new Date().getFullYear()}</p></div>
+            <script>window.print();<\/script></body></html>
+        `;
+        printWin.document.write(html);
+        printWin.document.close();
+    };
+
+    // === Lavagens Event Listeners ===
+    document.getElementById('btn-novo-lavagem')?.addEventListener('click', () => openLavagemModal());
+    document.querySelectorAll('.close-lavagem-modal').forEach(el => {
+        el.addEventListener('click', () => {
+            document.getElementById('lavagem-modal').style.display = 'none';
+        });
+    });
+
+    document.getElementById('lavagem-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        const placa = document.getElementById('lavagem-placa').value.toUpperCase().trim();
+        if (!placa) return showToast('Informe a placa do veículo.', 'warning');
+
+        const payload = {
+            placa,
+            veiculo: document.getElementById('lavagem-veiculo').value.trim(),
+            tipo_lavagem: document.getElementById('lavagem-tipo').value,
+            valor: parseNum(document.getElementById('lavagem-valor').value) || 0,
+            forma_pagamento: document.getElementById('lavagem-pagamento').value,
+            data: document.getElementById('lavagem-data').value,
+            responsavel: document.getElementById('lavagem-responsavel').value.trim(),
+            status: document.getElementById('lavagem-status').value,
+            observacoes: document.getElementById('lavagem-observacoes').value.trim(),
+            user_id: user?.id
+        };
+
+        try {
+            if (lavagemEditingId) {
+                const { error } = await window.supabaseClient
+                    .from('lavagens')
+                    .update(payload)
+                    .eq('id', lavagemEditingId);
+                if (error) throw error;
+                showToast('Lavagem atualizada com sucesso!', 'success');
+            } else {
+                const { error } = await window.supabaseClient
+                    .from('lavagens')
+                    .insert([payload]);
+                if (error) throw error;
+                showToast('Lavagem registrada com sucesso!', 'success');
+            }
+            document.getElementById('lavagem-modal').style.display = 'none';
+            await fetchLavagensData();
+        } catch (error) {
+            showToast('Erro ao salvar lavagem: ' + error.message, 'error');
+        }
+    });
+
+    document.getElementById('btn-pdf-lavagens')?.addEventListener('click', gerarPDFLavagens);
+    document.getElementById('btn-filtrar-lavagens')?.addEventListener('click', renderLavagensTable);
+    document.getElementById('btn-limpar-filtros-lavagens')?.addEventListener('click', () => {
+        document.getElementById('filter-lavagens-placa').value = '';
+        document.getElementById('filter-lavagens-veiculo').value = '';
+        document.getElementById('filter-lavagens-tipo').value = '';
+        document.getElementById('filter-lavagens-status').value = '';
+        document.getElementById('filter-lavagens-data').value = '';
+        document.getElementById('search-lavagens').value = '';
+        renderLavagensTable();
+    });
+    document.getElementById('btn-atualizar-lavagens')?.addEventListener('click', fetchLavagensData);
+    document.getElementById('search-lavagens')?.addEventListener('input', renderLavagensTable);
+
+    // Load Lavagens data when navigating to lavagens view
+    document.querySelector('[data-view="lavagens"]')?.addEventListener('click', () => {
+        setTimeout(fetchLavagensData, 100);
+    });
+
     // ======================== GUINCHO MODULE ========================
     let guinchoServices = [];
     let guinchoEditingId = null;
@@ -1468,9 +2333,10 @@ Instruções importantes:
     };
 
     window.calcGuinchoKM = () => {
-        const ini = parseFloat(document.getElementById('guincho-km-inicial').value) || 0;
-        const fin = parseFloat(document.getElementById('guincho-km-final').value) || 0;
-        document.getElementById('guincho-km-percorrido').value = fin >= ini ? (fin - ini) : 0;
+        const ini = parseNum(document.getElementById('guincho-km-inicial').value) || 0;
+        const fin = parseNum(document.getElementById('guincho-km-final').value) || 0;
+        const diff = fin >= ini ? (fin - ini) : 0;
+        document.getElementById('guincho-km-percorrido').value = isNaN(diff) ? '' : fmtKm(diff);
     };
 
     async function fetchGuinchoData() {
@@ -1496,7 +2362,7 @@ Instruções importantes:
 
         document.getElementById('stat-guincho-andamento').textContent = andamento;
         document.getElementById('stat-guincho-finalizados').textContent = finalizados;
-        document.getElementById('stat-guincho-km').textContent = `${kmTotal.toLocaleString()} km`;
+        document.getElementById('stat-guincho-km').textContent = `${fmtKm(kmTotal)} km`;
         document.getElementById('stat-guincho-valor').textContent = `R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
         // Dashboard stats (monthly)
@@ -1509,7 +2375,7 @@ Instruções importantes:
 
         document.getElementById('stat-dash-guincho-andamento').textContent = andamento;
         document.getElementById('stat-dash-guincho-finalizados').textContent = monthFinalizados;
-        document.getElementById('stat-dash-guincho-km').textContent = `${monthKm.toLocaleString()} km`;
+        document.getElementById('stat-dash-guincho-km').textContent = `${fmtKm(monthKm)} km`;
         document.getElementById('stat-dash-guincho-valor').textContent = `R$ ${monthValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
         renderRecentGuincho();
@@ -1529,7 +2395,7 @@ Instruções importantes:
                 <td style="white-space:nowrap">${s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---'}</td>
                 <td style="font-weight:700;color:var(--primary)">${s.placa}</td>
                 <td>${s.motorista || '---'}</td>
-                <td>${parseFloat(s.km_percorrido || 0).toFixed(0)} km</td>
+                <td>${fmtKm(s.km_percorrido)} km</td>
                 <td style="font-weight:700;color:var(--success)">R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
                 <td><span class="badge ${s.status === 'Finalizado' ? 'badge-active' : 'badge-maintenance'}">${s.status}</span></td>
             `;
@@ -1605,9 +2471,9 @@ Instruções importantes:
                 <td style="white-space:nowrap">${dataInicio}</td>
                 <td style="font-weight:700;color:var(--primary)">${s.placa}</td>
                 <td>${s.motorista || '---'}</td>
-                <td>${s.km_inicial ? parseFloat(s.km_inicial).toLocaleString() : '---'}</td>
-                <td>${s.km_final ? parseFloat(s.km_final).toLocaleString() : '---'}</td>
-                <td style="font-weight:600">${kmPercorrido > 0 ? kmPercorrido.toLocaleString() + ' km' : '---'}</td>
+                <td>${s.km_inicial ? fmtKm(s.km_inicial) : '---'}</td>
+                <td>${s.km_final ? fmtKm(s.km_final) : '---'}</td>
+                <td style="font-weight:600">${kmPercorrido > 0 ? fmtKm(kmPercorrido) + ' km' : '---'}</td>
                 <td style="font-weight:700;color:var(--success)">R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
                 <td><span class="badge ${badgeClass}">${s.status}</span></td>
                 <td>
@@ -1647,16 +2513,16 @@ Instruções importantes:
 
             if (service.km_inicial !== null || service.km_final !== null) {
                 setGuinchoKMMode('manual');
-                document.getElementById('guincho-km-inicial').value = service.km_inicial || '';
-                document.getElementById('guincho-km-final').value = service.km_final || '';
-                document.getElementById('guincho-km-percorrido').value = service.km_percorrido || '';
+                document.getElementById('guincho-km-inicial').value = service.km_inicial != null ? fmtKm(service.km_inicial) : '';
+                document.getElementById('guincho-km-final').value = service.km_final != null ? fmtKm(service.km_final) : '';
+                document.getElementById('guincho-km-percorrido').value = service.km_percorrido != null ? fmtKm(service.km_percorrido) : '';
             } else if (service.lat_origem !== null) {
                 setGuinchoKMMode('gps');
                 document.getElementById('guincho-lat-origem').value = service.lat_origem || '';
                 document.getElementById('guincho-lng-origem').value = service.lng_origem || '';
                 document.getElementById('guincho-lat-destino').value = service.lat_destino || '';
                 document.getElementById('guincho-lng-destino').value = service.lng_destino || '';
-                document.getElementById('guincho-km-percorrido-gps').value = service.km_percorrido || '';
+                document.getElementById('guincho-km-percorrido-gps').value = service.km_percorrido != null ? fmtKm(service.km_percorrido) : '';
             }
         } else {
             document.getElementById('guincho-data-inicio').value = new Date().toISOString().slice(0, 16);
@@ -1681,12 +2547,11 @@ Instruções importantes:
         document.getElementById('gd-status').className = `plate-badge ${s.status === 'Finalizado' ? 'badge-active' : 'badge-maintenance'}`;
         document.getElementById('gd-data-inicio').textContent = s.data_inicio ? new Date(s.data_inicio).toLocaleString('pt-BR') : '---';
         document.getElementById('gd-data-fim').textContent = s.data_fim ? new Date(s.data_fim).toLocaleString('pt-BR') : '---';
-        document.getElementById('gd-km-inicial').textContent = s.km_inicial ? parseFloat(s.km_inicial).toLocaleString() : '---';
-        document.getElementById('gd-km-final').textContent = s.km_final ? parseFloat(s.km_final).toLocaleString() : '---';
-        document.getElementById('gd-km-percorrido').textContent = s.km_percorrido ? `${parseFloat(s.km_percorrido).toLocaleString()} km` : '---';
+        document.getElementById('gd-km-inicial').textContent = s.km_inicial ? fmtKm(s.km_inicial) : '---';
+        document.getElementById('gd-km-final').textContent = s.km_final ? fmtKm(s.km_final) : '---';
+        document.getElementById('gd-km-percorrido').textContent = s.km_percorrido ? `${fmtKm(s.km_percorrido)} km` : '---';
         document.getElementById('gd-valor').textContent = `R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
         document.getElementById('gd-observacoes').textContent = s.observacoes || 'Sem observações.';
-
         const coordsDiv = document.getElementById('gd-coords');
         if (s.lat_origem && s.lng_origem) {
             coordsDiv.style.display = 'block';
@@ -1700,30 +2565,34 @@ Instruções importantes:
     };
 
     window.finalizarGuincho = async (id) => {
-        if (!confirm('Finalizar este serviço de guincho?')) return;
+        const confirmed = await showConfirm('Finalizar Serviço', 'Deseja marcar este serviço de guincho como Finalizado?');
+        if (!confirmed) return;
         try {
             const { error } = await window.supabaseClient
                 .from('servicos_guincho')
                 .update({ status: 'Finalizado', data_fim: new Date().toISOString() })
                 .eq('id', id);
             if (error) throw error;
+            showToast('Serviço de guincho finalizado com sucesso!', 'success');
             await fetchGuinchoData();
         } catch (error) {
-            alert('Erro ao finalizar: ' + error.message);
+            showToast('Erro ao finalizar: ' + error.message, 'error');
         }
     };
 
     window.excluirGuincho = async (id) => {
-        if (!confirm('Excluir permanentemente este serviço de guincho?')) return;
+        const confirmed = await showConfirm('Excluir Serviço', 'Deseja excluir permanentemente este serviço de guincho?');
+        if (!confirmed) return;
         try {
             const { error } = await window.supabaseClient
                 .from('servicos_guincho')
                 .delete()
                 .eq('id', id);
             if (error) throw error;
+            showToast('Serviço excluído com sucesso!', 'success');
             await fetchGuinchoData();
         } catch (error) {
-            alert('Erro ao excluir: ' + error.message);
+            showToast('Erro ao excluir: ' + error.message, 'error');
         }
     };
 
@@ -1734,7 +2603,7 @@ Instruções importantes:
         const lng2 = parseFloat(document.getElementById('guincho-lng-destino').value);
 
         if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) {
-            return alert('Preencha todas as coordenadas (latitude e longitude de origem e destino).');
+            return showToast('Preencha latitude e longitude de origem e destino.', 'warning');
         }
 
         // Haversine formula for straight-line distance
@@ -1753,7 +2622,7 @@ Instruções importantes:
             if (osrmData.code === 'Ok' && osrmData.routes && osrmData.routes.length > 0) {
                 const roadKm = osrmData.routes[0].distance / 1000;
                 document.getElementById('guincho-km-percorrido-gps').value = Math.round(roadKm * 10) / 10;
-                alert(`Distância calculada:\n• Rodoviária (rota real): ${roadKm.toFixed(1)} km\n• Linha reta (referência): ${straightLine.toFixed(1)} km\n\nO valor foi preenchido no campo KM Percorrido.`);
+                showToast(`Distância rodoviária calculada: ${roadKm.toFixed(1)} km`, 'success');
                 return;
             }
         } catch (e) {
@@ -1761,12 +2630,12 @@ Instruções importantes:
         }
 
         document.getElementById('guincho-km-percorrido-gps').value = Math.round(straightLine * 10) / 10;
-        alert(`Distância em linha reta: ${straightLine.toFixed(1)} km\n(API de rota não disponível, use valor aproximado)\n\nO valor foi preenchido no campo KM Percorrido.`);
+        showToast(`Distância em linha reta: ${straightLine.toFixed(1)} km`, 'info');
     }
 
     window.gerarPDFGuincho = () => {
         const filtered = getFilteredGuincho();
-        if (filtered.length === 0) return alert('Nenhum serviço encontrado para gerar PDF.');
+        if (filtered.length === 0) return showToast('Nenhum serviço encontrado para gerar PDF.', 'warning');
 
         const andamento = filtered.filter(s => s.status === 'Em Serviço').length;
         const finalizados = filtered.filter(s => s.status === 'Finalizado').length;
@@ -1796,15 +2665,15 @@ Instruções importantes:
                 <p style="color:#94a3b8;font-size:0.85rem">Emitido em: ${new Date().toLocaleString('pt-BR')}</p>
             </div>
             <div class="resumo">
-                <div class="resumo-item">Total Serviços<strong>${filtered.length}</strong></div>
+                <div class="resumo-item">Total de Serviços<strong>${filtered.length}</strong></div>
                 <div class="resumo-item">Em Andamento<strong>${andamento}</strong></div>
                 <div class="resumo-item">Finalizados<strong>${finalizados}</strong></div>
-                <div class="resumo-item">KM Total<strong>${kmTotal.toFixed(1)} km</strong></div>
+                <div class="resumo-item">KM Total<strong>${fmtKm(kmTotal)} km</strong></div>
                 <div class="resumo-item">Valor Total<strong>R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong></div>
             </div>
             <table>
                 <thead><tr>
-                    <th>Data</th><th>Placa</th><th>Motorista</th><th>KM Perc.</th><th>Valor</th><th>Status</th>
+                    <th>Data</th><th>Placa</th><th>Motorista</th><th>KM Inicial</th><th>KM Final</th><th>KM Percorrido</th><th>Valor</th><th>Status</th>
                 </tr></thead>
                 <tbody>
                     ${filtered.map(s => `
@@ -1812,7 +2681,9 @@ Instruções importantes:
                             <td>${s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---'}</td>
                             <td><b>${s.placa}</b></td>
                             <td>${s.motorista || '---'}</td>
-                            <td>${parseFloat(s.km_percorrido || 0).toFixed(1)} km</td>
+                            <td>${s.km_inicial ? fmtKm(s.km_inicial) : '---'}</td>
+                            <td>${s.km_final ? fmtKm(s.km_final) : '---'}</td>
+                            <td>${fmtKm(s.km_percorrido)} km</td>
                             <td>R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
                             <td>${s.status}</td>
                         </tr>
@@ -1840,14 +2711,14 @@ Instruções importantes:
         const { data: { user } } = await window.supabaseClient.auth.getUser();
         const isManual = document.getElementById('guincho-km-mode-manual').classList.contains('active');
         const kmPercorrido = isManual
-            ? parseFloat(document.getElementById('guincho-km-percorrido').value) || 0
-            : parseFloat(document.getElementById('guincho-km-percorrido-gps').value) || 0;
+            ? parseNum(document.getElementById('guincho-km-percorrido').value) || 0
+            : parseNum(document.getElementById('guincho-km-percorrido-gps').value) || 0;
 
         const payload = {
             placa: document.getElementById('guincho-placa').value.toUpperCase().trim(),
             motorista: document.getElementById('guincho-motorista').value.trim(),
             data_inicio: new Date(document.getElementById('guincho-data-inicio').value).toISOString(),
-            valor_cobrado: parseFloat(document.getElementById('guincho-valor').value) || 0,
+            valor_cobrado: parseNum(document.getElementById('guincho-valor').value) || 0,
             status: document.getElementById('guincho-status').value,
             km_percorrido: kmPercorrido,
             observacoes: document.getElementById('guincho-observacoes').value.trim(),
@@ -1855,8 +2726,8 @@ Instruções importantes:
         };
 
         if (isManual) {
-            payload.km_inicial = parseFloat(document.getElementById('guincho-km-inicial').value) || null;
-            payload.km_final = parseFloat(document.getElementById('guincho-km-final').value) || null;
+            payload.km_inicial = parseNum(document.getElementById('guincho-km-inicial').value) || null;
+            payload.km_final = parseNum(document.getElementById('guincho-km-final').value) || null;
         } else {
             payload.lat_origem = parseFloat(document.getElementById('guincho-lat-origem').value) || null;
             payload.lng_origem = parseFloat(document.getElementById('guincho-lng-origem').value) || null;
@@ -1866,7 +2737,7 @@ Instruções importantes:
             payload.km_final = null;
         }
 
-        if (!payload.placa) return alert('Informe a placa do veículo.');
+        if (!payload.placa) return showToast('Informe a placa do veículo.', 'warning');
 
         try {
             if (guinchoEditingId) {
@@ -1875,16 +2746,18 @@ Instruções importantes:
                     .update(payload)
                     .eq('id', guinchoEditingId);
                 if (error) throw error;
+                showToast('Serviço de guincho atualizado com sucesso!', 'success');
             } else {
                 const { error } = await window.supabaseClient
                     .from('servicos_guincho')
                     .insert([payload]);
                 if (error) throw error;
+                showToast('Serviço de guincho cadastrado com sucesso!', 'success');
             }
             document.getElementById('guincho-modal').style.display = 'none';
             await fetchGuinchoData();
         } catch (error) {
-            alert('Erro ao salvar: ' + error.message);
+            showToast('Erro ao salvar guincho: ' + error.message, 'error');
         }
     });
 
@@ -1913,10 +2786,12 @@ Instruções importantes:
     checkAuthAndLoad = async () => {
         await origCheckAuth.call(this);
         await fetchGuinchoData();
+        await fetchLavagensData();
     };
 
     // Also load on DOMContentLoaded after initial data
     setTimeout(fetchGuinchoData, 2000);
+    setTimeout(fetchLavagensData, 2000);
 
     // === DASHBOARD TABS ===
     document.querySelectorAll('#dashboard-tabs .tab-btn').forEach(btn => {
@@ -1924,35 +2799,162 @@ Instruções importantes:
             document.querySelectorAll('#dashboard-tabs .tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             const dash = btn.getAttribute('data-dash');
-            document.getElementById('dash-manutencao').style.display = dash === 'manutencao' ? 'block' : 'none';
-            document.getElementById('dash-guincho').style.display = dash === 'guincho' ? 'block' : 'none';
+            const dashManut = document.getElementById('dash-manutencao');
+            const dashGuincho = document.getElementById('dash-guincho');
+            const dashLavagens = document.getElementById('dash-lavagens');
+
+            if (dashManut) dashManut.style.display = dash === 'manutencao' ? 'block' : 'none';
+            if (dashGuincho) dashGuincho.style.display = dash === 'guincho' ? 'block' : 'none';
+            if (dashLavagens) dashLavagens.style.display = dash === 'lavagens' ? 'block' : 'none';
+
             if (dash === 'guincho') {
                 renderRecentGuincho();
                 updateGuinchoStats();
+            } else if (dash === 'lavagens') {
+                renderRecentDashLavagens();
+                updateDashLavagensCharts();
             }
         });
     });
 
-    // === RELATORIO TABS (Manutenção / Guincho) ===
+    // ==========================================
+    // CENTRAL DE RELATÓRIOS (4 ABAS & GRÁFICOS)
+    // ==========================================
     document.querySelectorAll('#relatorio-tabs .tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('#relatorio-tabs .tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             const relatorio = btn.getAttribute('data-relatorio');
+            
             document.getElementById('relatorio-manutencao').style.display = relatorio === 'manutencao' ? 'block' : 'none';
             document.getElementById('relatorio-guincho').style.display = relatorio === 'guincho' ? 'block' : 'none';
-            if (relatorio === 'guincho') updateRelatorioGuinchoStats();
+            document.getElementById('relatorio-lavagens').style.display = relatorio === 'lavagens' ? 'block' : 'none';
+            document.getElementById('relatorio-consolidado').style.display = relatorio === 'consolidado' ? 'block' : 'none';
+
+            if (relatorio === 'manutencao') updateRelatorioManutencaoStats();
+            else if (relatorio === 'guincho') updateRelatorioGuinchoStats();
+            else if (relatorio === 'lavagens') updateRelatorioLavagensStats();
+            else if (relatorio === 'consolidado') updateRelatorioConsolidadoStats();
         });
     });
 
-    function updateRelatorioGuinchoStats() {
-        const placa = (document.getElementById('filter-rel-guincho-placa').value || '').toUpperCase();
-        const motorista = (document.getElementById('filter-rel-guincho-motorista').value || '').toLowerCase();
-        const status = document.getElementById('filter-rel-guincho-status').value;
-        const inicio = document.getElementById('filter-rel-guincho-inicio').value;
-        const fim = document.getElementById('filter-rel-guincho-fim').value;
+    // --- RELATÓRIO DE MANUTENÇÕES ---
+    function getFilteredManutencoesRelatorio() {
+        const vId = document.getElementById('filter-vehicle-select')?.value;
+        const start = document.getElementById('filter-start-date')?.value;
+        const end = document.getElementById('filter-end-date')?.value;
 
-        const filtered = guinchoServices.filter(s => {
+        return activities.filter(a => {
+            if (vId && a.vehicle_id !== vId && a.plate !== vId) return false;
+            if (start) {
+                const parts = a.date.split('/');
+                const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                if (d < new Date(start)) return false;
+            }
+            if (end) {
+                const parts = a.date.split('/');
+                const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                const e = new Date(end);
+                e.setDate(e.getDate() + 1);
+                if (d > e) return false;
+            }
+            return true;
+        });
+    }
+
+    function updateRelatorioManutencaoStats() {
+        const filtered = getFilteredManutencoesRelatorio();
+        const totalCost = filtered.reduce((s, a) => s + (a.cost || 0), 0);
+        const totalCount = filtered.length;
+        const avgCost = totalCount > 0 ? totalCost / totalCount : 0;
+        const maxCost = filtered.reduce((m, a) => (a.cost > m ? a.cost : m), 0);
+
+        document.getElementById('rel-maint-custo').textContent = `R$ ${totalCost.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        document.getElementById('rel-maint-media').textContent = `R$ ${avgCost.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        document.getElementById('rel-maint-maior').textContent = `R$ ${maxCost.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        document.getElementById('rel-maint-total').textContent = totalCount;
+
+        // Gráfico Evolução Mensal
+        const monthly = Array(12).fill(0);
+        filtered.forEach(a => {
+            const parts = a.date.split('/');
+            const monthIdx = parseInt(parts[1], 10) - 1;
+            if (monthIdx >= 0 && monthIdx < 12) monthly[monthIdx] += (a.cost || 0);
+        });
+
+        const ctx1 = document.getElementById('relatorioChartManutencao')?.getContext('2d');
+        if (ctx1) {
+            if (relChartManutencao) relChartManutencao.destroy();
+            relChartManutencao = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+                    datasets: [{
+                        label: 'Custos R$',
+                        data: monthly,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        fill: true,
+                        tension: 0.35,
+                        pointBackgroundColor: '#3b82f6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // Gráfico Top 5 Veículos por Custo
+        const byVehicle = {};
+        filtered.forEach(a => {
+            const key = a.vehicle || a.plate;
+            byVehicle[key] = (byVehicle[key] || 0) + (a.cost || 0);
+        });
+        const sortedV = Object.entries(byVehicle).sort((a,b) => b[1] - a[1]).slice(0, 5);
+
+        const ctx2 = document.getElementById('relatorioChartManutencaoTop')?.getContext('2d');
+        if (ctx2) {
+            if (relChartManutencaoTop) relChartManutencaoTop.destroy();
+            relChartManutencaoTop = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: sortedV.map(x => x[0]),
+                    datasets: [{
+                        label: 'Custo Total R$',
+                        data: sortedV.map(x => x[1]),
+                        backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6'],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+    }
+
+    // --- RELATÓRIO DE GUINCHO ---
+    function getFilteredGuinchoRelatorio() {
+        const placa = (document.getElementById('filter-rel-guincho-placa')?.value || '').toUpperCase();
+        const motorista = (document.getElementById('filter-rel-guincho-motorista')?.value || '').toLowerCase();
+        const status = document.getElementById('filter-rel-guincho-status')?.value;
+        const inicio = document.getElementById('filter-rel-guincho-inicio')?.value;
+        const fim = document.getElementById('filter-rel-guincho-fim')?.value;
+
+        return guinchoServices.filter(s => {
             if (placa && !s.placa.toUpperCase().includes(placa)) return false;
             if (motorista && (!s.motorista || !s.motorista.toLowerCase().includes(motorista))) return false;
             if (status && s.status !== status) return false;
@@ -1964,7 +2966,10 @@ Instruções importantes:
             }
             return true;
         });
+    }
 
+    function updateRelatorioGuinchoStats() {
+        const filtered = getFilteredGuinchoRelatorio();
         const total = filtered.length;
         const andamento = filtered.filter(s => s.status === 'Em Serviço').length;
         const finalizados = filtered.filter(s => s.status === 'Finalizado').length;
@@ -1974,87 +2979,721 @@ Instruções importantes:
         document.getElementById('stat-rel-guincho-total').textContent = total;
         document.getElementById('stat-rel-guincho-andamento').textContent = andamento;
         document.getElementById('stat-rel-guincho-finalizados').textContent = finalizados;
-        document.getElementById('stat-rel-guincho-km').textContent = `${kmTotal.toLocaleString()} km`;
+        document.getElementById('stat-rel-guincho-km').textContent = `${fmtKm(kmTotal)} km`;
         document.getElementById('stat-rel-guincho-valor').textContent = `R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+
+        // Gráfico Mensal Guincho
+        const monthly = Array(12).fill(0);
+        filtered.forEach(s => {
+            if (s.data_inicio) {
+                const m = new Date(s.data_inicio).getMonth();
+                monthly[m] += (parseFloat(s.valor_cobrado) || 0);
+            }
+        });
+
+        const ctx1 = document.getElementById('relatorioChartGuincho')?.getContext('2d');
+        if (ctx1) {
+            if (relChartGuincho) relChartGuincho.destroy();
+            relChartGuincho = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+                    datasets: [{
+                        label: 'Faturamento R$',
+                        data: monthly,
+                        backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // KM por Motorista
+        const byDriver = {};
+        filtered.forEach(s => {
+            const drv = s.motorista || 'Sem Motorista';
+            byDriver[drv] = (byDriver[drv] || 0) + (parseFloat(s.km_percorrido) || 0);
+        });
+        const sortedD = Object.entries(byDriver).sort((a,b) => b[1] - a[1]).slice(0, 5);
+
+        const ctx2 = document.getElementById('relatorioChartGuinchoMotorista')?.getContext('2d');
+        if (ctx2) {
+            if (relChartGuinchoMotorista) relChartGuinchoMotorista.destroy();
+            relChartGuinchoMotorista = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: sortedD.map(x => x[0]),
+                    datasets: [{
+                        label: 'KM Percorridos',
+                        data: sortedD.map(x => x[1]),
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
     }
 
-    document.getElementById('btn-rel-pdf-guincho')?.addEventListener('click', () => {
-        const placa = (document.getElementById('filter-rel-guincho-placa').value || '').toUpperCase();
-        const motorista = (document.getElementById('filter-rel-guincho-motorista').value || '').toLowerCase();
-        const status = document.getElementById('filter-rel-guincho-status').value;
-        const inicio = document.getElementById('filter-rel-guincho-inicio').value;
-        const fim = document.getElementById('filter-rel-guincho-fim').value;
+    // --- RELATÓRIO DE LAVAGENS ---
+    function getFilteredLavagensRelatorio() {
+        const placa = (document.getElementById('filter-rel-lavagens-placa')?.value || '').toUpperCase();
+        const veiculo = (document.getElementById('filter-rel-lavagens-veiculo')?.value || '').toLowerCase();
+        const tipo = document.getElementById('filter-rel-lavagens-tipo')?.value;
+        const status = document.getElementById('filter-rel-lavagens-status')?.value;
+        const inicio = document.getElementById('filter-rel-lavagens-inicio')?.value;
+        const fim = document.getElementById('filter-rel-lavagens-fim')?.value;
 
-        const filtered = guinchoServices.filter(s => {
-            if (placa && !s.placa.toUpperCase().includes(placa)) return false;
-            if (motorista && (!s.motorista || !s.motorista.toLowerCase().includes(motorista))) return false;
-            if (status && s.status !== status) return false;
-            if (inicio && new Date(s.data_inicio) < new Date(inicio)) return false;
+        return lavagensData.filter(l => {
+            if (placa && !l.placa.toUpperCase().includes(placa)) return false;
+            if (veiculo && (!l.veiculo || !l.veiculo.toLowerCase().includes(veiculo))) return false;
+            if (tipo && l.tipo_lavagem !== tipo) return false;
+            if (status && l.status !== status) return false;
+            if (inicio && new Date(l.data) < new Date(inicio)) return false;
             if (fim) {
                 const end = new Date(fim);
                 end.setDate(end.getDate() + 1);
-                if (new Date(s.data_inicio) > end) return false;
+                if (new Date(l.data) > end) return false;
+            }
+            return true;
+        });
+    }
+
+    function updateRelatorioLavagensStats() {
+        const filtered = getFilteredLavagensRelatorio();
+        const total = filtered.length;
+        const pagas = filtered.filter(l => l.status === 'Pago').length;
+        const pendentes = filtered.filter(l => l.status === 'Pendente').length;
+        const valorTotal = filtered.reduce((s, l) => s + (parseNum(l.valor) || 0), 0);
+
+        document.getElementById('stat-rel-lavagens-total').textContent = total;
+        document.getElementById('stat-rel-lavagens-pagas').textContent = pagas;
+        document.getElementById('stat-rel-lavagens-pendentes').textContent = pendentes;
+        document.getElementById('stat-rel-lavagens-valor').textContent = `R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+
+        // Gráfico Evolução Lavagens
+        const monthly = Array(12).fill(0);
+        filtered.forEach(l => {
+            if (l.data) {
+                const m = new Date(l.data).getMonth();
+                monthly[m] += (parseNum(l.valor) || 0);
+            }
+        });
+
+        const ctx1 = document.getElementById('relatorioChartLavagens')?.getContext('2d');
+        if (ctx1) {
+            if (relChartLavagens) relChartLavagens.destroy();
+            relChartLavagens = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+                    datasets: [{
+                        label: 'Gasto Lavagens R$',
+                        data: monthly,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.15)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // Gráfico por Tipo de Lavagem
+        const byType = {};
+        filtered.forEach(l => {
+            const t = l.tipo_lavagem || 'Simples';
+            byType[t] = (byType[t] || 0) + (parseNum(l.valor) || 0);
+        });
+
+        const ctx2 = document.getElementById('relatorioChartLavagensTipo')?.getContext('2d');
+        if (ctx2) {
+            if (relChartLavagensTipo) relChartLavagensTipo.destroy();
+            relChartLavagensTipo = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(byType),
+                    datasets: [{
+                        data: Object.values(byType),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }
+                }
+            });
+        }
+    }
+
+    // --- RELATÓRIO VISÃO GERAL CONSOLIDADA ---
+    function updateRelatorioConsolidadoStats() {
+        const inicio = document.getElementById('filter-rel-cons-inicio')?.value;
+        const fim = document.getElementById('filter-rel-cons-fim')?.value;
+
+        // Filter Maintenance
+        const filtMaint = activities.filter(a => {
+            if (inicio) {
+                const parts = a.date.split('/');
+                if (new Date(`${parts[2]}-${parts[1]}-${parts[0]}`) < new Date(inicio)) return false;
+            }
+            if (fim) {
+                const parts = a.date.split('/');
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(`${parts[2]}-${parts[1]}-${parts[0]}`) > e) return false;
             }
             return true;
         });
 
-        if (filtered.length === 0) return alert('Nenhum serviço encontrado para os filtros selecionados.');
+        // Filter Guincho
+        const filtGuincho = guinchoServices.filter(s => {
+            if (inicio && new Date(s.data_inicio) < new Date(inicio)) return false;
+            if (fim) {
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(s.data_inicio) > e) return false;
+            }
+            return true;
+        });
 
-        const andamento = filtered.filter(s => s.status === 'Em Serviço').length;
-        const finalizados = filtered.filter(s => s.status === 'Finalizado').length;
-        const kmTotal = filtered.reduce((s, x) => s + (parseFloat(x.km_percorrido) || 0), 0);
-        const valorTotal = filtered.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+        // Filter Lavagens
+        const filtLav = lavagensData.filter(l => {
+            if (inicio && new Date(l.data) < new Date(inicio)) return false;
+            if (fim) {
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(l.data) > e) return false;
+            }
+            return true;
+        });
 
-        const printWin = window.open('', '_blank');
-        printWin.document.write(`
-            <html><head><title>Relatório Guincho - FROTA STRSAT</title>
-            <style>
-                body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; }
-                .header { text-align: center; border-bottom: 2px solid #8b5cf6; padding-bottom: 20px; margin-bottom: 30px; }
-                h1 { color: #1e293b; margin: 0; font-size: 1.5rem; }
-                .logo { font-size: 2rem; margin-bottom: 10px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th { background: #f1f5f9; text-align: left; padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; }
-                td { padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; }
-                .resumo { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 20px; }
-                .resumo-item { flex: 1; min-width: 120px; background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; }
-                .resumo-item strong { display: block; font-size: 1.2rem; color: #8b5cf6; margin-top: 5px; }
-                .footer { margin-top: 30px; text-align: center; font-size: 0.8rem; color: #94a3b8; }
-            </style></head><body>
-            <div class="header">
-                <div class="logo">🚛</div>
-                <h1>Relatório de Serviços de Guincho</h1>
-                <p style="color:#64748b;margin-top:5px">FROTA STRSAT</p>
-                <p style="color:#94a3b8;font-size:0.85rem">Emitido em: ${new Date().toLocaleString('pt-BR')}</p>
-            </div>
-            <div class="resumo">
-                <div class="resumo-item">Total<strong>${filtered.length}</strong></div>
-                <div class="resumo-item">Andamento<strong>${andamento}</strong></div>
-                <div class="resumo-item">Finalizados<strong>${finalizados}</strong></div>
-                <div class="resumo-item">KM Total<strong>${kmTotal.toFixed(1)} km</strong></div>
-                <div class="resumo-item">Valor Total<strong>R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong></div>
-            </div>
-            <table>
-                <thead><tr><th>Data</th><th>Placa</th><th>Motorista</th><th>KM Perc.</th><th>Valor</th><th>Status</th></tr></thead>
-                <tbody>${filtered.map(s => `<tr>
-                    <td>${s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---'}</td>
-                    <td><b>${s.placa}</b></td>
-                    <td>${s.motorista || '---'}</td>
-                    <td>${parseFloat(s.km_percorrido || 0).toFixed(1)} km</td>
-                    <td>R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                    <td>${s.status}</td>
-                </tr>`).join('')}</tbody>
-            </table>
-            <div class="footer"><p>Relatório gerado automaticamente - FROTA STRSAT &copy; ${new Date().getFullYear()}</p></div>
-            <script>window.print();<\/script></body></html>
-        `);
-        printWin.document.close();
+        const totalMaint = filtMaint.reduce((s, a) => s + (a.cost || 0), 0);
+        const totalGuincho = filtGuincho.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+        const totalLav = filtLav.reduce((s, l) => s + (parseNum(l.valor) || 0), 0);
+        const totalConsolidado = totalMaint + totalGuincho + totalLav;
+
+        document.getElementById('stat-rel-cons-total').textContent = `R$ ${totalConsolidado.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        document.getElementById('stat-rel-cons-maint').textContent = `R$ ${totalMaint.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        document.getElementById('stat-rel-cons-guincho').textContent = `R$ ${totalGuincho.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        document.getElementById('stat-rel-cons-lavagens').textContent = `R$ ${totalLav.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+
+        // Gráfico Pie Consolidado
+        const ctxPie = document.getElementById('relatorioChartConsolidadoPie')?.getContext('2d');
+        if (ctxPie) {
+            if (relChartConsolidadoPie) relChartConsolidadoPie.destroy();
+            relChartConsolidadoPie = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Manutenções', 'Guincho', 'Lavagens'],
+                    datasets: [{
+                        data: [totalMaint, totalGuincho, totalLav],
+                        backgroundColor: ['#3b82f6', '#8b5cf6', '#06b6d4'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }
+                }
+            });
+        }
+
+        // Gráfico Bar Mensal Consolidado
+        const maintMonthly = Array(12).fill(0);
+        const guinchoMonthly = Array(12).fill(0);
+        const lavMonthly = Array(12).fill(0);
+
+        filtMaint.forEach(a => {
+            const parts = a.date.split('/');
+            const m = parseInt(parts[1], 10) - 1;
+            if (m >= 0 && m < 12) maintMonthly[m] += (a.cost || 0);
+        });
+
+        filtGuincho.forEach(s => {
+            if (s.data_inicio) {
+                const m = new Date(s.data_inicio).getMonth();
+                guinchoMonthly[m] += (parseFloat(s.valor_cobrado) || 0);
+            }
+        });
+
+        filtLav.forEach(l => {
+            if (l.data) {
+                const m = new Date(l.data).getMonth();
+                lavMonthly[m] += (parseNum(l.valor) || 0);
+            }
+        });
+
+        const ctxBar = document.getElementById('relatorioChartConsolidadoBar')?.getContext('2d');
+        if (ctxBar) {
+            if (relChartConsolidadoBar) relChartConsolidadoBar.destroy();
+            relChartConsolidadoBar = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+                    datasets: [
+                        { label: 'Manutenções', data: maintMonthly, backgroundColor: '#3b82f6' },
+                        { label: 'Guincho', data: guinchoMonthly, backgroundColor: '#8b5cf6' },
+                        { label: 'Lavagens', data: lavMonthly, backgroundColor: '#06b6d4' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { color: '#94a3b8' } } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+    }
+
+    // --- LISTENERS DE FILTRO NOS RELATÓRIOS ---
+    ['filter-vehicle-select', 'filter-start-date', 'filter-end-date'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', updateRelatorioManutencaoStats);
     });
 
-    document.getElementById('btn-rel-atualizar-guincho')?.addEventListener('click', updateRelatorioGuinchoStats);
     ['filter-rel-guincho-placa','filter-rel-guincho-motorista','filter-rel-guincho-status','filter-rel-guincho-inicio','filter-rel-guincho-fim'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', updateRelatorioGuinchoStats);
         document.getElementById(id)?.addEventListener('change', updateRelatorioGuinchoStats);
     });
 
+    ['filter-rel-lavagens-placa','filter-rel-lavagens-veiculo','filter-rel-lavagens-tipo','filter-rel-lavagens-status','filter-rel-lavagens-inicio','filter-rel-lavagens-fim'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateRelatorioLavagensStats);
+        document.getElementById(id)?.addEventListener('change', updateRelatorioLavagensStats);
+    });
+
+    ['filter-rel-cons-inicio', 'filter-rel-cons-fim'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', updateRelatorioConsolidadoStats);
+    });
+
+    // --- GERADORES DE PDF VIA MOTOR PROFISSIONAL ---
+    document.getElementById('btn-generate-pdf')?.addEventListener('click', () => {
+        const filtered = getFilteredManutencoesRelatorio();
+        if (filtered.length === 0) return showToast('Nenhuma manutenção encontrada para o filtro.', 'warning');
+        const total = filtered.reduce((s, a) => s + (a.cost || 0), 0);
+
+        gerarPDFProfissional({
+            titulo: 'Relatório Geral de Manutenções da Frota',
+            subtitulo: `Filtro aplicado: ${filtered.length} registro(s) de manutenção`,
+            kpis: [
+                { label: 'Total de Manutenções', value: String(filtered.length) },
+                { label: 'Valor Acumulado', value: `R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}` },
+                { label: 'Média por Registro', value: `R$ ${(total/filtered.length).toLocaleString('pt-BR',{minimumFractionDigits:2})}` }
+            ],
+            headers: ['Veículo', 'Placa', 'Serviço Realizado', 'Data', 'KM Registrado', 'Valor', 'Status'],
+            rows: filtered.map(a => [
+                a.vehicle, a.plate, a.service, a.date, a.km ? `${fmtKm(a.km)} km` : '---',
+                `R$ ${(a.cost || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`, a.status
+            ]),
+            totalLabel: 'CUSTO TOTAL EM MANUTENÇÃO',
+            totalValue: `R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}`
+        });
+    });
+
+    document.getElementById('btn-rel-pdf-guincho')?.addEventListener('click', () => {
+        const filtered = getFilteredGuinchoRelatorio();
+        if (filtered.length === 0) return showToast('Nenhum serviço de guincho encontrado.', 'warning');
+        const valorTotal = filtered.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+        const kmTotal = filtered.reduce((s, x) => s + (parseFloat(x.km_percorrido) || 0), 0);
+
+        gerarPDFProfissional({
+            titulo: 'Relatório Executivo de Serviços de Guincho',
+            subtitulo: `Total de ${filtered.length} atuações registradas`,
+            kpis: [
+                { label: 'Total de Serviços', value: String(filtered.length) },
+                { label: 'KM Percorridos', value: `${fmtKm(kmTotal)} km` },
+                { label: 'Faturamento Total', value: `R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}` }
+            ],
+            headers: ['Data', 'Placa', 'Motorista', 'KM Inicial', 'KM Final', 'KM Percorrido', 'Valor Cobrado', 'Status'],
+            rows: filtered.map(s => [
+                s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---',
+                s.placa, s.motorista || '---', s.km_inicial ? `${fmtKm(s.km_inicial)} km` : '---',
+                s.km_final ? `${fmtKm(s.km_final)} km` : '---', `${fmtKm(s.km_percorrido)} km`,
+                `R$ ${parseFloat(s.valor_cobrado || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`, s.status
+            ]),
+            totalLabel: 'VALOR TOTAL FATURADO (GUINCHO)',
+            totalValue: `R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}`
+        });
+    });
+
+    document.getElementById('btn-rel-pdf-lavagens')?.addEventListener('click', () => {
+        const filtered = getFilteredLavagensRelatorio();
+        if (filtered.length === 0) return showToast('Nenhuma lavagem encontrada.', 'warning');
+        const valorTotal = filtered.reduce((s, l) => s + (parseNum(l.valor) || 0), 0);
+
+        gerarPDFProfissional({
+            titulo: 'Relatório de Higienização e Lavagens',
+            subtitulo: `Exibindo ${filtered.length} registro(s) de lavagem`,
+            kpis: [
+                { label: 'Total Lavagens', value: String(filtered.length) },
+                { label: 'Pagas', value: String(filtered.filter(l => l.status === 'Pago').length) },
+                { label: 'Pendentes', value: String(filtered.filter(l => l.status === 'Pendente').length) },
+                { label: 'Valor Acumulado', value: `R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}` }
+            ],
+            headers: ['Data', 'Placa', 'Veículo', 'Tipo de Lavagem', 'Pagamento', 'Valor', 'Status', 'Responsável'],
+            rows: filtered.map(l => [
+                l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '---',
+                l.placa, l.veiculo || '---', l.tipo_lavagem, l.forma_pagamento || '---',
+                `R$ ${(parseNum(l.valor) || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`,
+                l.status, l.responsavel || '---'
+            ]),
+            totalLabel: 'TOTAL EM LAVAGENS',
+            totalValue: `R$ ${valorTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}`
+        });
+    });
+
+    document.getElementById('btn-rel-pdf-consolidado')?.addEventListener('click', () => {
+        const inicio = document.getElementById('filter-rel-cons-inicio')?.value;
+        const fim = document.getElementById('filter-rel-cons-fim')?.value;
+
+        const filtMaint = activities.filter(a => {
+            if (inicio) {
+                const parts = a.date.split('/');
+                if (new Date(`${parts[2]}-${parts[1]}-${parts[0]}`) < new Date(inicio)) return false;
+            }
+            if (fim) {
+                const parts = a.date.split('/');
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(`${parts[2]}-${parts[1]}-${parts[0]}`) > e) return false;
+            }
+            return true;
+        });
+
+        const filtGuincho = guinchoServices.filter(s => {
+            if (inicio && new Date(s.data_inicio) < new Date(inicio)) return false;
+            if (fim) {
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(s.data_inicio) > e) return false;
+            }
+            return true;
+        });
+
+        const filtLav = lavagensData.filter(l => {
+            if (inicio && new Date(l.data) < new Date(inicio)) return false;
+            if (fim) {
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(l.data) > e) return false;
+            }
+            return true;
+        });
+
+        const totalMaint = filtMaint.reduce((s, a) => s + (a.cost || 0), 0);
+        const totalGuincho = filtGuincho.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+        const totalLav = filtLav.reduce((s, l) => s + (parseNum(l.valor) || 0), 0);
+        const totalConsolidado = totalMaint + totalGuincho + totalLav;
+
+        const rows = [
+            ['Manutenções Preventivas & Corretivas', String(filtMaint.length), `R$ ${totalMaint.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 'Pago / Concluído'],
+            ['Serviços Operacionais de Guincho', String(filtGuincho.length), `R$ ${totalGuincho.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 'Faturado / Andamento'],
+            ['Higienização e Lavagens de Frota', String(filtLav.length), `R$ ${totalLav.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 'Pago / Pendente']
+        ];
+
+        gerarPDFProfissional({
+            titulo: 'Relatório Executivo Consolidado de Custos da Frota',
+            subtitulo: 'Visão unificada das operações de Manutenção, Guincho e Lavagens',
+            kpis: [
+                { label: 'Custo Total Frota', value: `R$ ${totalConsolidado.toLocaleString('pt-BR',{minimumFractionDigits:2})}` },
+                { label: 'Gasto Manutenção', value: `R$ ${totalMaint.toLocaleString('pt-BR',{minimumFractionDigits:2})}` },
+                { label: 'Faturamento Guincho', value: `R$ ${totalGuincho.toLocaleString('pt-BR',{minimumFractionDigits:2})}` },
+                { label: 'Gasto Lavagens', value: `R$ ${totalLav.toLocaleString('pt-BR',{minimumFractionDigits:2})}` }
+            ],
+            headers: ['Módulo Operacional', 'Qtd. Atendimentos', 'Valor Total Acumulado', 'Status Operacional'],
+            rows: rows,
+            totalLabel: 'ORÇAMENTO GLOBAL CONSOLIDADO',
+            totalValue: `R$ ${totalConsolidado.toLocaleString('pt-BR',{minimumFractionDigits:2})}`
+        });
+    });
+
+    // --- EXPORTAÇÃO CSV DE RELATÓRIOS ---
+    document.getElementById('btn-rel-csv-lavagens')?.addEventListener('click', () => {
+        const filtered = getFilteredLavagensRelatorio();
+        const headers = ['Data', 'Placa', 'Veículo', 'Tipo de Lavagem', 'Forma de Pagamento', 'Valor (R$)', 'Status', 'Responsável'];
+        const rows = filtered.map(l => [
+            l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '',
+            l.placa, l.veiculo || '', l.tipo_lavagem, l.forma_pagamento || '',
+            parseNum(l.valor) || 0, l.status, l.responsavel || ''
+        ]);
+        exportToCSV('relatorio_lavagens', headers, rows);
+    });
+
+    document.getElementById('btn-rel-csv-consolidado')?.addEventListener('click', () => {
+        const inicio = document.getElementById('filter-rel-cons-inicio')?.value;
+        const fim = document.getElementById('filter-rel-cons-fim')?.value;
+
+        const filtMaint = activities.filter(a => {
+            if (inicio) {
+                const parts = a.date.split('/');
+                if (new Date(`${parts[2]}-${parts[1]}-${parts[0]}`) < new Date(inicio)) return false;
+            }
+            if (fim) {
+                const parts = a.date.split('/');
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(`${parts[2]}-${parts[1]}-${parts[0]}`) > e) return false;
+            }
+            return true;
+        });
+
+        const filtGuincho = guinchoServices.filter(s => {
+            if (inicio && new Date(s.data_inicio) < new Date(inicio)) return false;
+            if (fim) {
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(s.data_inicio) > e) return false;
+            }
+            return true;
+        });
+
+        const filtLav = lavagensData.filter(l => {
+            if (inicio && new Date(l.data) < new Date(inicio)) return false;
+            if (fim) {
+                const e = new Date(fim);
+                e.setDate(e.getDate() + 1);
+                if (new Date(l.data) > e) return false;
+            }
+            return true;
+        });
+
+        const totalMaint = filtMaint.reduce((s, a) => s + (a.cost || 0), 0);
+        const totalGuincho = filtGuincho.reduce((s, x) => s + (parseFloat(x.valor_cobrado) || 0), 0);
+        const totalLav = filtLav.reduce((s, l) => s + (parseNum(l.valor) || 0), 0);
+
+        const headers = ['Módulo', 'Registros', 'Valor Acumulado (R$)'];
+        const rows = [
+            ['Manutenções', filtMaint.length, totalMaint],
+            ['Guincho', filtGuincho.length, totalGuincho],
+            ['Lavagens', filtLav.length, totalLav],
+            ['TOTAL CONSOLIDADO', filtMaint.length + filtGuincho.length + filtLav.length, totalMaint + totalGuincho + totalLav]
+        ];
+        exportToCSV('relatorio_consolidado_frota', headers, rows);
+    });
+
+    // Atualização inicial ao carregar a página
+    setTimeout(() => {
+        updateRelatorioManutencaoStats();
+        updateRelatorioGuinchoStats();
+        updateRelatorioLavagensStats();
+        updateRelatorioConsolidadoStats();
+    }, 1000);
+
+
+    // ==========================================
+    // REVISÕES VENCIDAS / PRÓXIMAS INTERATIVAS
+    // ==========================================
+    window.openRevisoesModal = (type) => {
+        const modal = document.getElementById('revisoes-modal');
+        const titleEl = document.getElementById('revisoes-modal-title');
+        const descEl = document.getElementById('revisoes-modal-desc');
+        const iconEl = document.getElementById('revisoes-modal-icon');
+        const listBody = document.getElementById('revisoes-modal-list');
+
+        if (!modal || !listBody) return;
+
+        const isOverdue = type === 'overdue';
+        titleEl.textContent = isOverdue ? 'Veículos com Revisão Vencida' : 'Veículos Próximos da Revisão';
+        descEl.textContent = isOverdue
+            ? 'Veículos que ultrapassaram a meta de 10.000 km desde a última manutenção registrada.'
+            : 'Veículos que atingiram entre 9.000 km e 10.000 km rodados desde a última manutenção e exigem atenção preventiva.';
+
+        if (iconEl) {
+            iconEl.style.color = isOverdue ? 'var(--danger)' : 'var(--warning)';
+        }
+
+        const items = [];
+        vehicles.forEach(v => {
+            if (v.status === 'Inativo') return;
+            const km = v.km || 0;
+            const lastMaintKm = v.history && v.history.length > 0 ? Math.max(...v.history.map(h => h.km || 0)) : 0;
+            const kmSinceLast = km - lastMaintKm;
+
+            if (km > 0) {
+                if (isOverdue && kmSinceLast >= 10000) {
+                    items.push({ vehicle: v, km, lastMaintKm, kmSinceLast });
+                } else if (!isOverdue && kmSinceLast >= 9000 && kmSinceLast < 10000) {
+                    items.push({ vehicle: v, km, lastMaintKm, kmSinceLast });
+                }
+            }
+        });
+
+        items.sort((a, b) => b.kmSinceLast - a.kmSinceLast);
+
+        listBody.innerHTML = items.length === 0
+            ? `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhum veículo ${isOverdue ? 'com revisão vencida' : 'próximo da revisão'}. Frota em dia!</td></tr>`
+            : '';
+
+        items.forEach(item => {
+            const v = item.vehicle;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight:700;color:var(--primary)">${v.plate}</td>
+                <td>${v.brand} ${v.model}</td>
+                <td>${fmtKm(item.km)} km</td>
+                <td>${item.lastMaintKm > 0 ? fmtKm(item.lastMaintKm) + ' km' : 'Nunca'}</td>
+                <td>
+                    <span class="badge" style="background:${isOverdue ? 'rgba(239,68,68,0.15);color:var(--danger)' : 'rgba(245,158,11,0.15);color:var(--warning)'};font-weight:700;">
+                        +${fmtKm(item.kmSinceLast)} km
+                    </span>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="iniciarRevisaoPeloModal('${v.id}')">
+                        <i data-lucide="wrench"></i> Revisar
+                    </button>
+                </td>
+            `;
+            listBody.appendChild(tr);
+        });
+
+        modal.style.display = 'flex';
+        if (window.lucide) lucide.createIcons();
+    };
+
+    window.iniciarRevisaoPeloModal = (vehicleId) => {
+        const modal = document.getElementById('revisoes-modal');
+        if (modal) modal.style.display = 'none';
+
+        const maintNav = document.querySelector('[data-view="manutencao"]');
+        if (maintNav) maintNav.click();
+
+        setTimeout(() => {
+            const select = document.getElementById('maint-vehicle-select');
+            if (select) {
+                select.value = vehicleId;
+                select.dispatchEvent(new Event('change'));
+            }
+            showToast('Veículo selecionado para ordem de manutenção.', 'info');
+        }, 150);
+    };
+
+    document.querySelectorAll('.close-revisoes-modal').forEach(el => {
+        el.addEventListener('click', () => {
+            const modal = document.getElementById('revisoes-modal');
+            if (modal) modal.style.display = 'none';
+        });
+    });
+
+    document.getElementById('card-stat-overdue')?.addEventListener('click', () => openRevisoesModal('overdue'));
+    document.getElementById('card-stat-next')?.addEventListener('click', () => openRevisoesModal('next'));
+
+    // ==========================================
+    // EXPORTAÇÕES PARA CSV / EXCEL
+    // ==========================================
+    // CSV Veículos
+    document.getElementById('btn-csv-veiculos')?.addEventListener('click', () => {
+        const headers = ['Placa', 'Marca', 'Modelo', 'Ano', 'Cor', 'Chassi', 'KM Atual', 'Status'];
+        const rows = vehicles.map(v => [
+            v.plate, v.brand, v.model, v.year, v.color, v.chassi, v.km, v.status
+        ]);
+        exportToCSV('frota_veiculos', headers, rows);
+    });
+
+    // CSV Manutenções
+    document.getElementById('btn-csv-manutencao')?.addEventListener('click', () => {
+        const vId = document.getElementById('filter-vehicle-select')?.value;
+        const start = document.getElementById('filter-start-date')?.value;
+        const end = document.getElementById('filter-end-date')?.value;
+
+        const filtered = activities.filter(a => {
+            if (vId && a.vehicle_id !== vId) return false;
+            const d = new Date(a.date.split('/').reverse().join('-'));
+            if (start && d < new Date(start)) return false;
+            if (end && d > new Date(end)) return false;
+            return true;
+        });
+
+        const headers = ['Veículo', 'Placa', 'Serviço', 'Data', 'KM no Momento', 'Custo (R$)', 'Status'];
+        const rows = filtered.map(a => [
+            a.vehicle, a.plate, a.service, a.date, a.km || 0, a.cost || 0, a.status
+        ]);
+        exportToCSV('relatorio_manutencoes', headers, rows);
+    });
+
+    // CSV Guincho
+    document.getElementById('btn-csv-guincho')?.addEventListener('click', () => {
+        const filtered = getFilteredGuincho();
+        const headers = ['Data Início', 'Placa', 'Motorista', 'KM Inicial', 'KM Final', 'KM Percorrido', 'Valor Cobrado (R$)', 'Status', 'Observações'];
+        const rows = filtered.map(s => [
+            s.data_inicio ? new Date(s.data_inicio).toLocaleString('pt-BR') : '',
+            s.placa, s.motorista || '', s.km_inicial || '', s.km_final || '', s.km_percorrido || '',
+            s.valor_cobrado, s.status, s.observacoes || ''
+        ]);
+        exportToCSV('servicos_guincho', headers, rows);
+    });
+
+    // CSV Guincho (Relatório)
+    document.getElementById('btn-rel-csv-guincho')?.addEventListener('click', () => {
+        document.getElementById('btn-csv-guincho')?.click();
+    });
+
+    // CSV Lavagens
+    document.getElementById('btn-csv-lavagens')?.addEventListener('click', () => {
+        const filtered = getFilteredLavagens();
+        const headers = ['Data', 'Placa', 'Veículo', 'Tipo de Lavagem', 'Forma de Pagamento', 'Valor (R$)', 'Status', 'Responsável', 'Observações'];
+        const rows = filtered.map(l => [
+            l.data ? new Date(l.data).toLocaleDateString('pt-BR') : '',
+            l.placa, l.veiculo || '', l.tipo_lavagem, l.forma_pagamento || '',
+            parseNum(l.valor) || 0, l.status, l.responsavel || '', l.observacoes || ''
+        ]);
+        exportToCSV('registro_lavagens', headers, rows);
+    });
+
+    // ==========================================
+    // MÁSCARA AUTOMÁTICA DE PLACAS
+    // ==========================================
+    function applyPlateMask(inputEl) {
+        if (!inputEl) return;
+        inputEl.addEventListener('input', () => {
+            let v = inputEl.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (v.length > 7) v = v.slice(0, 7);
+            inputEl.value = v;
+        });
+    }
+    applyPlateMask(document.querySelector('input[name="plate"]'));
+    applyPlateMask(document.getElementById('lavagem-placa'));
+    applyPlateMask(document.getElementById('guincho-placa'));
+    applyPlateMask(document.getElementById('filter-guincho-placa'));
+    applyPlateMask(document.getElementById('filter-lavagens-placa'));
+    applyPlateMask(document.getElementById('filter-rel-guincho-placa'));
+
 });
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+}
