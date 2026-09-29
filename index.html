@@ -68,7 +68,7 @@
                         <div class="card stat-card"><div class="stat-icon icon-blue"><i data-lucide="truck"></i></div><div class="stat-info"><span class="stat-value" id="stat-active">0</span><span class="stat-label">Veículos Ativos</span></div></div>
                         <div class="card stat-card"><div class="stat-icon icon-orange"><i data-lucide="settings-2"></i></div><div class="stat-info"><span class="stat-value" id="stat-maintenance">0</span><span class="stat-label">Em Manutenção</span></div></div>
                         <div class="card stat-card clickable" id="card-stat-overdue" title="Clique para ver veículos com revisão vencida"><div class="stat-icon icon-red"><i data-lucide="alert-circle"></i></div><div class="stat-info"><span class="stat-value" id="stat-overdue">0</span><span class="stat-label">Revisões Vencidas</span><span class="clickable-hint"><i data-lucide="info" style="width:12px;height:12px"></i> Ver detalhes</span></div></div>
-                        <div class="card stat-card clickable" id="card-stat-next" title="Clique para ver veículos próximos da revisão"><div class="stat-icon icon-green"><i data-lucide="calendar"></i></div><div class="stat-info"><span class="stat-value" id="stat-next">0</span><span class="stat-label">Próximas Revisões</span><span class="clickable-hint"><i data-lucide="info" style="width:12px;height:12px"></i> Ver detalhes</span></div></div>
+                        <div class="card stat-card clickable" id="card-stat-next" title="Clique para ver o detalhamento do custo total de manutenção"><div class="stat-icon icon-purple"><i data-lucide="dollar-sign"></i></div><div class="stat-info"><span class="stat-value" id="stat-next">R$ 0,00</span><span class="stat-label">Custo Total Manutenção</span><span class="clickable-hint"><i data-lucide="info" style="width:12px;height:12px"></i> Ver detalhes</span></div></div>
                     </div>
                     <div class="charts-grid">
                         <div class="card chart-card"><div class="card-header"><h3 class="card-title">Fluxo de Custos Mensais</h3></div><canvas id="costsChart"></canvas></div>
@@ -809,7 +809,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js?v=3"></script>
     <script src="auth.js?v=3"></script>
-    <script src="script_app.js?v=21"></script>
+    <script src="script_app.js?v=22"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>

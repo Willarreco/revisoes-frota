@@ -775,7 +775,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if(elOverdue) elOverdue.textContent = overdue;
         
         const elNext = document.getElementById('stat-next');
-        if(elNext) elNext.textContent = next;
+        if(elNext) {
+            const totalMaintCost = (activities || []).reduce((sum, a) => sum + (parseFloat(a.cost) || 0), 0);
+            elNext.textContent = `R$ ${totalMaintCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
         
         const filtered = vehicles.filter(v => {
             const m = v.model || ''; const p = v.plate || ''; const b = v.brand || '';
@@ -866,7 +869,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const activityTable = document.getElementById('recent-activities');
         if (!activityTable) return;
 
-        const totalCost = activities.reduce((sum, a) => sum + (a.cost || 0), 0);
+        const totalCost = activities.reduce((sum, a) => sum + (parseFloat(a.cost) || 0), 0);
+        const elNext = document.getElementById('stat-next');
+        if(elNext) {
+            elNext.textContent = `R$ ${totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
         const avgCost = vehicles.length ? totalCost / vehicles.length : 0;
         
         // Find max monthly cost
@@ -3922,17 +3929,95 @@ Instruções importantes:
         const descEl = document.getElementById('revisoes-modal-desc');
         const iconEl = document.getElementById('revisoes-modal-icon');
         const listBody = document.getElementById('revisoes-modal-list');
+        const tableHead = modal ? modal.querySelector('thead tr') : null;
 
         if (!modal || !listBody) return;
 
+        if (type === 'next' || type === 'cost') {
+            titleEl.textContent = 'Detalhamento do Custo de Manutenção';
+            descEl.textContent = 'Resumo dos custos de manutenção acumulados por veículo.';
+            if (iconEl) {
+                iconEl.setAttribute('data-lucide', 'dollar-sign');
+                iconEl.style.color = 'var(--purple)';
+            }
+
+            if (tableHead) {
+                tableHead.innerHTML = `
+                    <th>Placa</th>
+                    <th>Veículo</th>
+                    <th>Total Manutenções</th>
+                    <th>KM Atual</th>
+                    <th>Custo Total (R$)</th>
+                    <th>Ação</th>
+                `;
+            }
+
+            const costByVehicle = {};
+            (activities || []).forEach(a => {
+                const key = a.vehicle_id || a.plate || a.vehicle;
+                if (!costByVehicle[key]) {
+                    costByVehicle[key] = { count: 0, total: 0 };
+                }
+                costByVehicle[key].count += 1;
+                costByVehicle[key].total += (parseFloat(a.cost) || 0);
+            });
+
+            const items = vehicles.filter(v => v.status !== 'Inativo').map(v => {
+                const match = costByVehicle[v.id] || costByVehicle[v.plate] || { count: 0, total: 0 };
+                return {
+                    vehicle: v,
+                    count: match.count,
+                    totalCost: match.total
+                };
+            });
+
+            items.sort((a, b) => b.totalCost - a.totalCost);
+
+            listBody.innerHTML = items.length === 0
+                ? `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhuma manutenção registrada.</td></tr>`
+                : '';
+
+            items.forEach(item => {
+                const v = item.vehicle;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:700;color:var(--primary)">${v.plate}</td>
+                    <td>${v.brand} ${v.model}</td>
+                    <td><span class="badge badge-active">${item.count} ${item.count === 1 ? 'manutenção' : 'manutenções'}</span></td>
+                    <td>${fmtKm(v.km)} km</td>
+                    <td style="font-weight:700;color:var(--purple)">R$ ${item.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="showVehicleDetails(vehicles.find(x=>x.id==='${v.id}')); document.getElementById('revisoes-modal').style.display='none';">
+                            <i data-lucide="eye"></i> Detalhes
+                        </button>
+                    </td>
+                `;
+                listBody.appendChild(tr);
+            });
+
+            modal.style.display = 'flex';
+            if (window.lucide) lucide.createIcons();
+            return;
+        }
+
         const isOverdue = type === 'overdue';
-        titleEl.textContent = isOverdue ? 'Veículos com Revisão Vencida' : 'Veículos Próximos da Revisão';
-        descEl.textContent = isOverdue
-            ? 'Veículos que ultrapassaram a meta de 10.000 km desde a última manutenção registrada.'
-            : 'Veículos que atingiram entre 9.000 km e 10.000 km rodados desde a última manutenção e exigem atenção preventiva.';
+        titleEl.textContent = 'Veículos com Revisão Vencida';
+        descEl.textContent = 'Veículos que ultrapassaram a meta de 10.000 km desde a última manutenção registrada.';
 
         if (iconEl) {
-            iconEl.style.color = isOverdue ? 'var(--danger)' : 'var(--warning)';
+            iconEl.setAttribute('data-lucide', 'alert-circle');
+            iconEl.style.color = 'var(--danger)';
+        }
+
+        if (tableHead) {
+            tableHead.innerHTML = `
+                <th>Placa</th>
+                <th>Veículo</th>
+                <th>KM Atual</th>
+                <th>Última Manut.</th>
+                <th>KM Percorrido</th>
+                <th>Ação</th>
+            `;
         }
 
         const items = [];
@@ -3942,19 +4027,15 @@ Instruções importantes:
             const lastMaintKm = v.history && v.history.length > 0 ? Math.max(...v.history.map(h => h.km || 0)) : 0;
             const kmSinceLast = km - lastMaintKm;
 
-            if (km > 0) {
-                if (isOverdue && kmSinceLast >= 10000) {
-                    items.push({ vehicle: v, km, lastMaintKm, kmSinceLast });
-                } else if (!isOverdue && kmSinceLast >= 9000 && kmSinceLast < 10000) {
-                    items.push({ vehicle: v, km, lastMaintKm, kmSinceLast });
-                }
+            if (km > 0 && kmSinceLast >= 10000) {
+                items.push({ vehicle: v, km, lastMaintKm, kmSinceLast });
             }
         });
 
         items.sort((a, b) => b.kmSinceLast - a.kmSinceLast);
 
         listBody.innerHTML = items.length === 0
-            ? `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhum veículo ${isOverdue ? 'com revisão vencida' : 'próximo da revisão'}. Frota em dia!</td></tr>`
+            ? `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhum veículo com revisão vencida. Frota em dia!</td></tr>`
             : '';
 
         items.forEach(item => {
@@ -3966,7 +4047,7 @@ Instruções importantes:
                 <td>${fmtKm(item.km)} km</td>
                 <td>${item.lastMaintKm > 0 ? fmtKm(item.lastMaintKm) + ' km' : 'Nunca'}</td>
                 <td>
-                    <span class="badge" style="background:${isOverdue ? 'rgba(239,68,68,0.15);color:var(--danger)' : 'rgba(245,158,11,0.15);color:var(--warning)'};font-weight:700;">
+                    <span class="badge" style="background:rgba(239,68,68,0.15);color:var(--danger);font-weight:700;">
                         +${fmtKm(item.kmSinceLast)} km
                     </span>
                 </td>
