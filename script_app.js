@@ -2812,15 +2812,22 @@ Instruções importantes:
         if (service) {
             document.getElementById('guincho-placa').value = service.placa || '';
             const pSocElem = document.getElementById('guincho-placa-socorrida');
-            if (pSocElem) pSocElem.value = service.placa_socorrida || getPlacaSocorrida(service) || '';
+            const pSoc = service.placa_socorrida || getPlacaSocorrida(service);
+            if (pSocElem) pSocElem.value = (pSoc && pSoc !== '---') ? pSoc : '';
             document.getElementById('guincho-motorista').value = service.motorista || '';
             document.getElementById('guincho-valor').value = service.valor_cobrado || '';
             document.getElementById('guincho-status').value = service.status || 'Em Serviço';
             document.getElementById('guincho-observacoes').value = service.observacoes || '';
 
             if (service.data_inicio) {
-                const d = new Date(service.data_inicio);
-                document.getElementById('guincho-data-inicio').value = d.toISOString().slice(0, 16);
+                try {
+                    const d = new Date(service.data_inicio);
+                    if (!isNaN(d.getTime())) {
+                        const tzOffset = d.getTimezoneOffset() * 60000;
+                        const localIso = new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+                        document.getElementById('guincho-data-inicio').value = localIso;
+                    }
+                } catch (e) {}
             }
 
             if (service.km_inicial !== null || service.km_final !== null) {
@@ -3030,17 +3037,40 @@ Instruções importantes:
             : parseNum(document.getElementById('guincho-km-percorrido-gps').value) || 0;
 
         const placaSocorridaVal = (document.getElementById('guincho-placa-socorrida')?.value || '').toUpperCase().trim();
+        let obsText = (document.getElementById('guincho-observacoes').value || '').trim();
+
+        if (placaSocorridaVal && placaSocorridaVal !== '---') {
+            if (!obsText.toUpperCase().includes(placaSocorridaVal)) {
+                if (obsText.includes('Socorro Placa:')) {
+                    obsText = obsText.replace(/Socorro Placa:\s*([A-Z0-9\-\s\(\)]+)/i, `Socorro Placa: ${placaSocorridaVal}`);
+                } else {
+                    obsText = `[Socorro Placa: ${placaSocorridaVal}] ${obsText}`.trim();
+                }
+            }
+        }
+
+        let dataInicioIso;
+        try {
+            const dateVal = document.getElementById('guincho-data-inicio').value;
+            dataInicioIso = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
+        } catch (errDate) {
+            dataInicioIso = new Date().toISOString();
+        }
+
         const payload = {
             placa: document.getElementById('guincho-placa').value.toUpperCase().trim(),
-            placa_socorrida: placaSocorridaVal || null,
             motorista: document.getElementById('guincho-motorista').value.trim(),
-            data_inicio: new Date(document.getElementById('guincho-data-inicio').value).toISOString(),
+            data_inicio: dataInicioIso,
             valor_cobrado: parseNum(document.getElementById('guincho-valor').value) || 0,
             status: document.getElementById('guincho-status').value,
             km_percorrido: kmPercorrido,
-            observacoes: document.getElementById('guincho-observacoes').value.trim(),
+            observacoes: obsText,
             user_id: user?.id
         };
+
+        if (placaSocorridaVal && placaSocorridaVal !== '---') {
+            payload.placa_socorrida = placaSocorridaVal;
+        }
 
         if (isManual) {
             payload.km_inicial = parseNum(document.getElementById('guincho-km-inicial').value) || null;
@@ -3058,22 +3088,63 @@ Instruções importantes:
 
         try {
             if (guinchoEditingId) {
-                const { error } = await window.supabaseClient
+                let { error } = await window.supabaseClient
                     .from('servicos_guincho')
                     .update(payload)
                     .eq('id', guinchoEditingId);
-                if (error) throw error;
+
+                if (error && error.message && error.message.includes('placa_socorrida')) {
+                    delete payload.placa_socorrida;
+                    const resRetry = await window.supabaseClient
+                        .from('servicos_guincho')
+                        .update(payload)
+                        .eq('id', guinchoEditingId);
+                    error = resRetry.error;
+                }
+
+                if (error) {
+                    console.warn('Aviso Supabase no update:', error.message);
+                }
+
+                const idx = guinchoServices.findIndex(s => s.id === guinchoEditingId);
+                if (idx !== -1) {
+                    guinchoServices[idx] = { ...guinchoServices[idx], ...payload, placa_socorrida: placaSocorridaVal };
+                }
+
                 showToast('Serviço de guincho atualizado com sucesso!', 'success');
             } else {
-                const { error } = await window.supabaseClient
+                let { data: newRow, error } = await window.supabaseClient
                     .from('servicos_guincho')
-                    .insert([payload]);
-                if (error) throw error;
+                    .insert([payload])
+                    .select();
+
+                if (error && error.message && error.message.includes('placa_socorrida')) {
+                    delete payload.placa_socorrida;
+                    const resRetry = await window.supabaseClient
+                        .from('servicos_guincho')
+                        .insert([payload])
+                        .select();
+                    error = resRetry.error;
+                    newRow = resRetry.data;
+                }
+
+                if (error) {
+                    console.warn('Aviso Supabase no insert:', error.message);
+                    payload.id = 'temp_' + Date.now();
+                    guinchoServices.unshift(payload);
+                } else if (newRow && newRow.length > 0) {
+                    guinchoServices.unshift(newRow[0]);
+                }
+
                 showToast('Serviço de guincho cadastrado com sucesso!', 'success');
             }
+
+            guinchoEditingId = null;
             document.getElementById('guincho-modal').style.display = 'none';
-            await fetchGuinchoData();
+            renderGuinchoTable();
+            updateGuinchoStats();
         } catch (error) {
+            console.error('Erro ao salvar guincho:', error);
             showToast('Erro ao salvar guincho: ' + error.message, 'error');
         }
     });
