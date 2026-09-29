@@ -2592,7 +2592,9 @@ Instruções importantes:
                         }
                     }
 
-                    const placaAtendida = c.placa || '---';
+                    const rawPlacaAtendida = c.placa || '---';
+                    const cleanPlacaSoc = cleanPlate(rawPlacaAtendida);
+                    const placaAtendida = cleanPlacaSoc !== '---' ? cleanPlacaSoc : rawPlacaAtendida;
                     const segurado = c.segurado || 'Cliente';
                     const servico = c.servico || 'Socorro';
                     const motivo = c.motivo_final || c.motivo || 'Atendimento';
@@ -2601,6 +2603,7 @@ Instruções importantes:
 
                     const rec = {
                         placa: targetPlate,
+                        placa_socorrida: cleanPlacaSoc !== '---' ? cleanPlacaSoc : null,
                         motorista: c.finalizado_por || c.usuario_abertura || 'Motorista Astranlog',
                         valor_cobrado: parseFloat(c.valor_servico) || 0,
                         status: 'Finalizado',
@@ -2740,14 +2743,46 @@ Instruções importantes:
         renderGuinchoTable();
     };
 
-    function getPlacaSocorrida(s) {
-        if (s.placa_socorrida) return s.placa_socorrida;
-        if (s.observacoes) {
-            const match = s.observacoes.match(/Socorro Placa:\s*([A-Z0-9]{7}(?:\s*\([^)]+\))?)/i);
-            if (match) return match[1];
+    function cleanPlate(input) {
+        if (!input || typeof input !== 'string') return '---';
+        let s = input.trim();
+        if (s === '' || s === '---') return '---';
+
+        const match = s.match(/([A-Z]{3}-?[0-9][A-Z0-9][0-9]{2})/i);
+        if (match) {
+            return match[1].replace('-', '').toUpperCase();
+        }
+
+        s = s.split('(')[0].split('-')[0].trim().toUpperCase();
+        if (s.length >= 7 && s.length <= 8 && /^[A-Z0-9]+$/.test(s)) {
+            return s;
         }
         return '---';
     }
+    window.cleanPlate = cleanPlate;
+
+    function getPlacaSocorrida(s) {
+        if (!s) return '---';
+        if (s.placa_socorrida && s.placa_socorrida !== '---') {
+            const cleaned = cleanPlate(s.placa_socorrida);
+            if (cleaned !== '---') return cleaned;
+        }
+        if (s.observacoes) {
+            const matchObs = s.observacoes.match(/Socorro Placa:\s*([A-Z0-9\-\s\(\)]+?)(?=\s*\([A-Z\s]+\)\s*-|\s*-|\s*\(|\.|\,|\]|$)/i) || 
+                              s.observacoes.match(/Socorro Placa:\s*([^\.\-\]\,]+)/i);
+            if (matchObs) {
+                const cleaned = cleanPlate(matchObs[1]);
+                if (cleaned !== '---') return cleaned;
+            }
+
+            const match = s.observacoes.match(/([A-Z]{3}-?[0-9][A-Z0-9][0-9]{2})/i);
+            if (match) {
+                return match[1].replace('-', '').toUpperCase();
+            }
+        }
+        return '---';
+    }
+    window.getPlacaSocorrida = getPlacaSocorrida;
 
     function renderGuinchoTable() {
         const tbody = document.getElementById('guincho-list');
@@ -2817,9 +2852,9 @@ Instruções importantes:
         setGuinchoKMMode('manual');
 
         if (service) {
-            document.getElementById('guincho-placa').value = service.placa || '';
+            document.getElementById('guincho-placa').value = cleanPlate(service.placa) !== '---' ? cleanPlate(service.placa) : (service.placa || '');
             const pSocElem = document.getElementById('guincho-placa-socorrida');
-            const pSoc = service.placa_socorrida || getPlacaSocorrida(service);
+            const pSoc = cleanPlate(service.placa_socorrida || getPlacaSocorrida(service));
             if (pSocElem) pSocElem.value = (pSoc && pSoc !== '---') ? pSoc : '';
             document.getElementById('guincho-motorista').value = service.motorista || '';
             document.getElementById('guincho-valor').value = service.valor_cobrado || '';
@@ -3043,7 +3078,8 @@ Instruções importantes:
             ? parseNum(document.getElementById('guincho-km-percorrido').value) || 0
             : parseNum(document.getElementById('guincho-km-percorrido-gps').value) || 0;
 
-        const placaSocorridaVal = (document.getElementById('guincho-placa-socorrida')?.value || '').toUpperCase().trim();
+        const rawPlacaSocorrida = (document.getElementById('guincho-placa-socorrida')?.value || '').trim();
+        const placaSocorridaVal = cleanPlate(rawPlacaSocorrida);
         let obsText = (document.getElementById('guincho-observacoes').value || '').trim();
 
         if (placaSocorridaVal && placaSocorridaVal !== '---') {

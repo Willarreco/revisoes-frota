@@ -7,6 +7,17 @@ const ASTRANLOG_PASS = 'Will@2026';
 let cachedToken = null;
 let cachedTokenExpiry = 0;
 
+function cleanPlate(input) {
+    if (!input || typeof input !== 'string') return '---';
+    let s = input.trim();
+    if (s === '' || s === '---') return '---';
+    const match = s.match(/([A-Z]{3}-?[0-9][A-Z0-9][0-9]{2})/i);
+    if (match) return match[1].replace('-', '').toUpperCase();
+    s = s.split('(')[0].split('-')[0].trim().toUpperCase();
+    if (s.length >= 7 && s.length <= 8 && /^[A-Z0-9]+$/.test(s)) return s;
+    return '---';
+}
+
 async function getInstantAidToken() {
     if (cachedToken && Date.now() < cachedTokenExpiry) {
         return cachedToken;
@@ -84,8 +95,11 @@ export default async function handler(req, res) {
                 }
             }
 
+
+
             const protocolo = c.protocolo || (c.id ? c.id.slice(0, 8) : 'ASS');
-            const placaAtendida = c.placa || '---';
+            const cleanPlacaSoc = cleanPlate(c.placa);
+            const placaAtendida = cleanPlacaSoc !== '---' ? cleanPlacaSoc : (c.placa || '---');
             const segurado = c.segurado || 'Cliente';
             const servico = c.servico || 'Socorro';
             const motivo = c.motivo_final || c.motivo || 'Atendimento';
@@ -96,6 +110,7 @@ export default async function handler(req, res) {
                 external_id: c.id,
                 protocolo,
                 placa: targetPlate,
+                placa_socorrida: cleanPlacaSoc,
                 motorista: c.finalizado_por || c.usuario_abertura || 'Motorista Astranlog',
                 valor_cobrado: parseFloat(c.valor_servico) || 0,
                 status: 'Finalizado',
