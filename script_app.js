@@ -1094,7 +1094,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!vId) return showToast('Selecione um veículo.', 'warning');
         const total = currentServices.reduce((s,x)=>s+x.price,0) + currentParts.reduce((s,x)=>s+x.price,0);
-        if (total === 0) return showToast('Adicione pelo menos um serviço ou peça com valor.', 'warning');
+        if (total === 0) return showToast('Adicione pelo menos um serviço ou mão de obra com valor.', 'warning');
 
         try {
             const { data: { user } } = await window.supabaseClient.auth.getUser();
