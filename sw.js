@@ -1,4 +1,4 @@
-const CACHE = 'frota-strsat-v3';
+const CACHE = 'frota-strsat-v4';
 const CORE = [
   './',
   './index.html',

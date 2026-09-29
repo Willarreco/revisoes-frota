@@ -93,7 +93,7 @@
                     </div>
                     <div class="card">
                         <div class="card-header"><h3 class="card-title">Últimos Serviços</h3></div>
-                        <div class="table-container"><table><thead><tr><th>Data</th><th>Placa</th><th>Motorista</th><th>KM</th><th>Valor</th><th>Status</th></tr></thead><tbody id="recent-guincho"></tbody></table></div>
+                        <div class="table-container"><table><thead><tr><th>Data</th><th>Placa Guincho</th><th>Placa Socorrida</th><th>Motorista</th><th>KM</th><th>Valor</th><th>Status</th></tr></thead><tbody id="recent-guincho"></tbody></table></div>
                     </div>
                 </div>
 
@@ -199,10 +199,21 @@
 
                 <div class="card-header mb-4">
                     <h3 class="card-title">Serviços de Guincho</h3>
-                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
                         <div class="search-box"><input type="text" placeholder="Buscar por placa ou motorista..." class="form-input" id="search-guincho"></div>
+                        <button class="btn btn-primary" id="btn-sync-astranlog" style="background: linear-gradient(135deg, #10b981, #059669); color: white;" title="Sincronizar socorros finalizados do prestador Astranlog (QRD9G90 e FCF5J84)"><i data-lucide="cloud-lightning"></i> Sync Astranlog</button>
                         <button class="btn btn-primary" id="btn-novo-guincho"><i data-lucide="plus"></i> Novo Serviço</button>
                         <button class="btn btn-back" id="btn-atualizar-guincho"><i data-lucide="refresh-cw"></i> Atualizar</button>
+                    </div>
+                </div>
+
+                <div id="astranlog-sync-banner" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <strong style="color: #10b981;"><i data-lucide="zap" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> Auto-Sync Astranlog:</strong>
+                        Integração automática ativa para o prestador <b>ASTRANLOG</b> (Guinchos <b>QRD9G90</b> e <b>FCF5J84</b>) via Instant Aid Flow.
+                    </div>
+                    <div id="astranlog-sync-status" style="font-size: 0.8rem; opacity: 0.85; font-weight: 500;">
+                        Última sincronização: <span id="astranlog-last-sync">---</span>
                     </div>
                 </div>
 
@@ -230,7 +241,8 @@
                             <thead>
                                 <tr>
                                     <th style="cursor:pointer" onclick="sortGuincho('data_inicio')">Data ↕</th>
-                                    <th>Placa</th>
+                                    <th>Placa Guincho</th>
+                                    <th>Placa Socorrida</th>
                                     <th>Motorista</th>
                                     <th>KM Inicial</th>
                                     <th>KM Final</th>
@@ -603,7 +615,8 @@
             </div>
             <form id="guincho-form" class="mt-4">
                 <div class="form-row">
-                    <div class="form-group"><label>Placa do Veículo *</label><input type="text" id="guincho-placa" class="form-input" placeholder="AAA0A00" required style="text-transform:uppercase"></div>
+                    <div class="form-group"><label>Placa Guincho *</label><input type="text" id="guincho-placa" class="form-input" placeholder="QRD9G90 / FCF5J84" required style="text-transform:uppercase"></div>
+                    <div class="form-group"><label>Placa Socorrida (Cliente)</label><input type="text" id="guincho-placa-socorrida" class="form-input" placeholder="Ex: RLH9D61" style="text-transform:uppercase"></div>
                     <div class="form-group"><label>Motorista / Operador</label><input type="text" id="guincho-motorista" class="form-input" placeholder="Nome do motorista"></div>
                 </div>
                 <div class="form-row mt-4">
@@ -669,6 +682,7 @@
                     <span class="plate-badge" id="gd-status">--</span>
                 </div>
                 <div class="details-grid" style="grid-template-columns:1fr 1fr;gap:1rem">
+                    <div class="stat-mini"><span class="label">Placa Socorrida (Cliente)</span><span class="value" id="gd-placa-socorrida" style="color:#059669;font-weight:700">--</span></div>
                     <div class="stat-mini"><span class="label">Data/Hora Início</span><span class="value" id="gd-data-inicio">--</span></div>
                     <div class="stat-mini"><span class="label">Data/Hora Término</span><span class="value" id="gd-data-fim">--</span></div>
                     <div class="stat-mini"><span class="label">KM Inicial</span><span class="value" id="gd-km-inicial">--</span></div>

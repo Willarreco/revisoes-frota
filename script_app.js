@@ -1593,10 +1593,10 @@ Instruções importantes:
                 scales: { 
                     y: { 
                         beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#94a3b8', callback: (v) => 'R$ ' + v.toLocaleString() }
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        ticks: { color: '#64748b', callback: (v) => 'R$ ' + v.toLocaleString() }
                     },
-                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    x: { grid: { display: false }, ticks: { color: '#64748b' } }
                 } 
             }
         });
@@ -1609,7 +1609,7 @@ Instruções importantes:
                 labels: hasData ? Object.keys(typeTotals) : ['Sem dados'],
                 datasets: [{
                     data: hasData ? Object.values(typeTotals) : [1],
-                    backgroundColor: hasData ? ['#3b82f6', '#10b981', '#f59e0b'] : ['#1e293b'],
+                    backgroundColor: hasData ? ['#3b82f6', '#10b981', '#f59e0b'] : ['#e2e8f0'],
                     borderWidth: 0,
                     hoverOffset: hasData ? 10 : 0
                 }]
@@ -1617,7 +1617,7 @@ Instruções importantes:
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 15, font: { size: 11 } } } },
+                plugins: { legend: { position: 'bottom', labels: { color: '#475569', padding: 15, font: { size: 11, family: 'Plus Jakarta Sans' } } } },
                 cutout: '70%'
             }
         });
@@ -1665,10 +1665,10 @@ Instruções importantes:
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#94a3b8', callback: (v) => 'R$ ' + v.toLocaleString() }
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        ticks: { color: '#64748b', callback: (v) => 'R$ ' + v.toLocaleString() }
                     },
-                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    x: { grid: { display: false }, ticks: { color: '#64748b' } }
                 }
             }
         });
@@ -1681,7 +1681,7 @@ Instruções importantes:
                 labels: hasData ? ['Finalizados', 'Em Andamento'] : ['Sem dados'],
                 datasets: [{
                     data: hasData ? [totalFinalizado, totalAndamento] : [1],
-                    backgroundColor: hasData ? ['#10b981', '#f59e0b'] : ['#1e293b'],
+                    backgroundColor: hasData ? ['#10b981', '#f59e0b'] : ['#e2e8f0'],
                     borderWidth: 0,
                     hoverOffset: hasData ? 10 : 0
                 }]
@@ -1689,7 +1689,7 @@ Instruções importantes:
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 15, font: { size: 11 } } } },
+                plugins: { legend: { position: 'bottom', labels: { color: '#475569', padding: 15, font: { size: 11, family: 'Plus Jakarta Sans' } } } },
                 cutout: '70%'
             }
         });
@@ -2003,10 +2003,10 @@ Instruções importantes:
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#94a3b8', callback: (v) => 'R$ ' + v.toLocaleString() }
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        ticks: { color: '#64748b', callback: (v) => 'R$ ' + v.toLocaleString() }
                     },
-                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    x: { grid: { display: false }, ticks: { color: '#64748b' } }
                 }
             }
         });
@@ -2021,7 +2021,7 @@ Instruções importantes:
                 labels: hasData ? Object.keys(typeCounts) : ['Sem dados'],
                 datasets: [{
                     data: hasData ? Object.values(typeCounts) : [1],
-                    backgroundColor: hasData ? ['#3b82f6', '#10b981', '#f59e0b', '#ec4899'] : ['#1e293b'],
+                    backgroundColor: hasData ? ['#3b82f6', '#10b981', '#f59e0b', '#ec4899'] : ['#e2e8f0'],
                     borderWidth: 0,
                     hoverOffset: hasData ? 8 : 0
                 }]
@@ -2030,12 +2030,7 @@ Instruções importantes:
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 12, font: { size: 11 } } },
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => `${ctx.label}: R$ ${(ctx.raw || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                        }
-                    }
+                    legend: { position: 'bottom', labels: { color: '#475569', font: { family: 'Plus Jakarta Sans' } } }
                 },
                 cutout: '68%'
             }
@@ -2422,10 +2417,185 @@ Instruções importantes:
 
             renderGuinchoTable();
             updateGuinchoStats();
+
+            // Auto-sincronizar socorros finalizados do prestador ASTRANLOG (Instant Aid Flow)
+            if (typeof window.syncAstranlogSocorros === 'function') {
+                window.syncAstranlogSocorros({ silent: true });
+            }
         } catch (error) {
             console.error('Erro ao carregar guincho:', error.message);
         }
     }
+
+    // === AUTO-SYNC PRESTADOR ASTRANLOG (INSTANT AID FLOW) ===
+    const ASTRANLOG_CONFIG = {
+        url: 'https://syhdieqibyhlljahmrjp.supabase.co',
+        key: 'sb_publishable_OhZEQUt3cwUQ4wPMUBaonA_dJa07dci',
+        email: 'william.arreco@grupoastran.com.br',
+        password: 'Will@2026',
+        targetPrestador: 'astranlog',
+        allowedPlates: ['QRD9G90', 'FCF5J84']
+    };
+
+    let astranlogTokenCache = null;
+    let astranlogTokenExpiry = 0;
+
+    async function getAstranlogAuthToken() {
+        if (astranlogTokenCache && Date.now() < astranlogTokenExpiry) {
+            return astranlogTokenCache;
+        }
+        const res = await fetch(`${ASTRANLOG_CONFIG.url}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: {
+                'apikey': ASTRANLOG_CONFIG.key,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: ASTRANLOG_CONFIG.email,
+                password: ASTRANLOG_CONFIG.password
+            })
+        });
+        if (!res.ok) {
+            throw new Error(`Erro na autenticação Instant Aid Flow (${res.status})`);
+        }
+        const data = await res.json();
+        astranlogTokenCache = data.access_token;
+        astranlogTokenExpiry = Date.now() + ((data.expires_in || 3600) - 300) * 1000;
+        return astranlogTokenCache;
+    }
+
+    window.syncAstranlogSocorros = async function (options = { silent: true }) {
+        const btn = document.getElementById('btn-sync-astranlog');
+        const lastSyncElem = document.getElementById('astranlog-last-sync');
+        if (btn && !options.silent) {
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Sincronizando...';
+            if (window.lucide) lucide.createIcons();
+        }
+
+        try {
+            const token = await getAstranlogAuthToken();
+            const headers = {
+                'apikey': ASTRANLOG_CONFIG.key,
+                'Authorization': `Bearer ${token}`
+            };
+
+            const res = await fetch(`${ASTRANLOG_CONFIG.url}/rest/v1/chamados?prestador=ilike.*${ASTRANLOG_CONFIG.targetPrestador}*&order=created_at.desc`, { headers });
+            if (!res.ok) {
+                throw new Error(`Erro HTTP ${res.status} ao consultar Instant Aid Flow`);
+            }
+            const chamados = await res.json();
+
+            const finalizados = chamados.filter(c => {
+                const sit = (c.situacao || '').toLowerCase();
+                const st = (c.status || '').toLowerCase();
+                return sit === 'finalizado' || sit === 'aguardando_pagamento' || st === 'atendido' || c.finalizado_em != null;
+            });
+
+            if (lastSyncElem) {
+                const now = new Date();
+                lastSyncElem.textContent = `${now.toLocaleTimeString('pt-BR')} (${finalizados.length} socorro(s) finalizado(s))`;
+            }
+
+            if (!finalizados.length) {
+                if (!options.silent) showToast('Nenhum socorro finalizado da Astranlog pendente no momento.', 'info');
+                return 0;
+            }
+
+            const user = (await window.supabaseClient.auth.getUser()).data?.user;
+            const currentUserId = user ? user.id : null;
+
+            const { data: currentDbRecords } = await window.supabaseClient
+                .from('servicos_guincho')
+                .select('*');
+            const existing = currentDbRecords || guinchoServices || [];
+
+            let insertedCount = 0;
+
+            for (const c of finalizados) {
+                const protocolo = c.protocolo || (c.id ? c.id.slice(0, 8) : 'ASS');
+                
+                const exists = existing.some(s => {
+                    const obs = (s.observacoes || '').toUpperCase();
+                    return obs.includes(protocolo.toUpperCase());
+                });
+
+                if (!exists) {
+                    const fullText = JSON.stringify(c).toUpperCase();
+                    let targetPlate = null;
+
+                    if (fullText.includes('FCF5J84')) {
+                        targetPlate = 'FCF5J84';
+                    } else if (fullText.includes('QRD9G90')) {
+                        targetPlate = 'QRD9G90';
+                    } else {
+                        const serv = (c.servico || '').toLowerCase();
+                        const mot = (c.motivo || c.motivo_final || '').toLowerCase();
+                        if (serv.includes('extra pesado') || serv.includes('pesado') || mot.includes('tombamento')) {
+                            targetPlate = 'QRD9G90';
+                        } else {
+                            targetPlate = 'FCF5J84';
+                        }
+                    }
+
+                    const placaAtendida = c.placa || '---';
+                    const segurado = c.segurado || 'Cliente';
+                    const servico = c.servico || 'Socorro';
+                    const motivo = c.motivo_final || c.motivo || 'Atendimento';
+                    const origem = [c.origem_cidade, c.origem_estado].filter(Boolean).join('-') || c.origem || 'N/I';
+                    const destino = [c.destino_cidade, c.destino_estado].filter(Boolean).join('-') || c.destino || 'N/I';
+
+                    const rec = {
+                        placa: targetPlate,
+                        motorista: c.finalizado_por || c.usuario_abertura || 'Motorista Astranlog',
+                        valor_cobrado: parseFloat(c.valor_servico) || 0,
+                        status: 'Finalizado',
+                        data_inicio: c.data_abertura || c.created_at || new Date().toISOString(),
+                        data_fim: c.finalizado_em || c.updated_at || c.created_at || new Date().toISOString(),
+                        observacoes: `[Instant Aid Flow ${protocolo}] Socorro Placa: ${placaAtendida} (${segurado}) - ${servico} (${motivo}). Origem: ${origem} -> Destino: ${destino}`,
+                        user_id: currentUserId
+                    };
+
+                    const { error: insError } = await window.supabaseClient
+                        .from('servicos_guincho')
+                        .insert([rec]);
+
+                    if (!insError) {
+                        insertedCount++;
+                    } else {
+                        console.error('Erro ao cadastrar socorro Astranlog:', insError);
+                    }
+                }
+            }
+
+            if (insertedCount > 0) {
+                const { data: refreshed } = await window.supabaseClient
+                    .from('servicos_guincho')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (refreshed) guinchoServices = refreshed;
+
+                renderGuinchoTable();
+                updateGuinchoStats();
+
+                showToast(`Auto-Sync Astranlog: ${insertedCount} novo(s) socorro(s) cadastrado(s) automaticamente!`, 'success');
+            } else {
+                if (!options.silent) showToast('Todos os socorros da Astranlog já estão cadastrados.', 'success');
+            }
+
+            return insertedCount;
+        } catch (err) {
+            console.error('Erro ao sincronizar Astranlog:', err);
+            if (!options.silent) showToast('Erro na sincronização Astranlog: ' + err.message, 'error');
+            return 0;
+        } finally {
+            if (btn && !options.silent) {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="cloud-lightning"></i> Sync Astranlog';
+                if (window.lucide) lucide.createIcons();
+            }
+        }
+    };
 
     function updateGuinchoStats() {
         const andamento = guinchoServices.filter(s => s.status === 'Em Serviço').length;
@@ -2460,13 +2630,18 @@ Instruções importantes:
         if (!tbody) return;
         const recent = [...guinchoServices].sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio)).slice(0, 10);
         tbody.innerHTML = recent.length === 0
-            ? '<tr><td colspan="6" style="text-align:center;padding:1rem;color:var(--text-secondary)">Nenhum serviço de guincho.</td></tr>'
+            ? '<tr><td colspan="7" style="text-align:center;padding:1rem;color:var(--text-secondary)">Nenhum serviço de guincho.</td></tr>'
             : '';
         recent.forEach(s => {
             const tr = document.createElement('tr');
+            const placaSoc = getPlacaSocorrida(s);
+            const badgeSoc = placaSoc !== '---'
+                ? `<span style="font-weight:700;color:#059669;background:rgba(16,185,129,0.12);padding:0.18rem 0.5rem;border-radius:6px;font-size:0.78rem;">${placaSoc}</span>`
+                : '---';
             tr.innerHTML = `
                 <td style="white-space:nowrap">${s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---'}</td>
                 <td style="font-weight:700;color:var(--primary)">${s.placa}</td>
+                <td>${badgeSoc}</td>
                 <td>${s.motorista || '---'}</td>
                 <td>${fmtKm(s.km_percorrido)} km</td>
                 <td style="font-weight:700;color:var(--success)">R$ ${parseFloat(s.valor_cobrado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
@@ -2489,7 +2664,8 @@ Instruções importantes:
             if (placa && !s.placa.toUpperCase().includes(placa)) return false;
             if (motorista && (!s.motorista || !s.motorista.toLowerCase().includes(motorista))) return false;
             if (status && s.status !== status) return false;
-            if (search && !s.placa.toLowerCase().includes(search) && (!s.motorista || !s.motorista.toLowerCase().includes(search))) return false;
+            const placaSoc = getPlacaSocorrida(s).toLowerCase();
+            if (search && !s.placa.toLowerCase().includes(search) && (!s.motorista || !s.motorista.toLowerCase().includes(search)) && !placaSoc.includes(search)) return false;
             if (inicio) {
                 const d = new Date(s.data_inicio);
                 if (d < new Date(inicio)) return false;
@@ -2510,6 +2686,15 @@ Instruções importantes:
         renderGuinchoTable();
     };
 
+    function getPlacaSocorrida(s) {
+        if (s.placa_socorrida) return s.placa_socorrida;
+        if (s.observacoes) {
+            const match = s.observacoes.match(/Socorro Placa:\s*([A-Z0-9]{7}(?:\s*\([^)]+\))?)/i);
+            if (match) return match[1];
+        }
+        return '---';
+    }
+
     function renderGuinchoTable() {
         const tbody = document.getElementById('guincho-list');
         if (!tbody) return;
@@ -2529,7 +2714,7 @@ Instruções importantes:
         });
 
         tbody.innerHTML = sorted.length === 0
-            ? '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhum serviço de guincho encontrado.</td></tr>'
+            ? '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-secondary)">Nenhum serviço de guincho encontrado.</td></tr>'
             : '';
 
         sorted.forEach(s => {
@@ -2539,10 +2724,15 @@ Instruções importantes:
             const dataInicio = s.data_inicio ? new Date(s.data_inicio).toLocaleString('pt-BR') : '---';
             const dataFim = s.data_fim ? new Date(s.data_fim).toLocaleString('pt-BR') : '---';
             const kmPercorrido = parseFloat(s.km_percorrido) || 0;
+            const placaSoc = getPlacaSocorrida(s);
+            const badgeSocorrida = placaSoc !== '---'
+                ? `<span style="font-weight:700;color:#059669;background:rgba(16,185,129,0.12);padding:0.25rem 0.6rem;border-radius:6px;font-size:0.83rem;border:1px solid rgba(16,185,129,0.25);">${placaSoc}</span>`
+                : '<span style="color:var(--text-secondary)">---</span>';
 
             tr.innerHTML = `
                 <td style="white-space:nowrap">${dataInicio}</td>
                 <td style="font-weight:700;color:var(--primary)">${s.placa}</td>
+                <td>${badgeSocorrida}</td>
                 <td>${s.motorista || '---'}</td>
                 <td>${s.km_inicial ? fmtKm(s.km_inicial) : '---'}</td>
                 <td>${s.km_final ? fmtKm(s.km_final) : '---'}</td>
@@ -2574,6 +2764,8 @@ Instruções importantes:
 
         if (service) {
             document.getElementById('guincho-placa').value = service.placa || '';
+            const pSocElem = document.getElementById('guincho-placa-socorrida');
+            if (pSocElem) pSocElem.value = service.placa_socorrida || getPlacaSocorrida(service) || '';
             document.getElementById('guincho-motorista').value = service.motorista || '';
             document.getElementById('guincho-valor').value = service.valor_cobrado || '';
             document.getElementById('guincho-status').value = service.status || 'Em Serviço';
@@ -2615,6 +2807,8 @@ Instruções importantes:
         if (!s) return;
 
         document.getElementById('gd-placa').textContent = s.placa;
+        const gdSocElem = document.getElementById('gd-placa-socorrida');
+        if (gdSocElem) gdSocElem.textContent = getPlacaSocorrida(s);
         document.getElementById('gd-motorista').textContent = s.motorista || 'Motorista não informado';
         document.getElementById('gd-status').textContent = s.status;
         document.getElementById('gd-status').className = `plate-badge ${s.status === 'Finalizado' ? 'badge-active' : 'badge-maintenance'}`;
@@ -2746,13 +2940,14 @@ Instruções importantes:
             </div>
             <table>
                 <thead><tr>
-                    <th>Data</th><th>Placa</th><th>Motorista</th><th>KM Inicial</th><th>KM Final</th><th>KM Percorrido</th><th>Valor</th><th>Status</th>
+                    <th>Data</th><th>Placa Guincho</th><th>Placa Socorrida</th><th>Motorista</th><th>KM Inicial</th><th>KM Final</th><th>KM Percorrido</th><th>Valor</th><th>Status</th>
                 </tr></thead>
                 <tbody>
                     ${filtered.map(s => `
                         <tr>
                             <td>${s.data_inicio ? new Date(s.data_inicio).toLocaleDateString('pt-BR') : '---'}</td>
                             <td><b>${s.placa}</b></td>
+                            <td><b style="color:#059669">${getPlacaSocorrida(s)}</b></td>
                             <td>${s.motorista || '---'}</td>
                             <td>${s.km_inicial ? fmtKm(s.km_inicial) : '---'}</td>
                             <td>${s.km_final ? fmtKm(s.km_final) : '---'}</td>
@@ -2787,8 +2982,10 @@ Instruções importantes:
             ? parseNum(document.getElementById('guincho-km-percorrido').value) || 0
             : parseNum(document.getElementById('guincho-km-percorrido-gps').value) || 0;
 
+        const placaSocorridaVal = (document.getElementById('guincho-placa-socorrida')?.value || '').toUpperCase().trim();
         const payload = {
             placa: document.getElementById('guincho-placa').value.toUpperCase().trim(),
+            placa_socorrida: placaSocorridaVal || null,
             motorista: document.getElementById('guincho-motorista').value.trim(),
             data_inicio: new Date(document.getElementById('guincho-data-inicio').value).toISOString(),
             valor_cobrado: parseNum(document.getElementById('guincho-valor').value) || 0,
@@ -2847,6 +3044,11 @@ Instruções importantes:
         renderGuinchoTable();
     });
     document.getElementById('btn-atualizar-guincho')?.addEventListener('click', fetchGuinchoData);
+    document.getElementById('btn-sync-astranlog')?.addEventListener('click', () => {
+        if (typeof window.syncAstranlogSocorros === 'function') {
+            window.syncAstranlogSocorros({ silent: false });
+        }
+    });
     document.getElementById('search-guincho')?.addEventListener('input', renderGuinchoTable);
 
     // Load Guincho data when navigating to guincho view
@@ -2865,6 +3067,13 @@ Instruções importantes:
     // Also load on DOMContentLoaded after initial data
     setTimeout(fetchGuinchoData, 2000);
     setTimeout(fetchLavagensData, 2000);
+
+    // Auto-sync periódico a cada 2 minutos (120000 ms) para o prestador Astranlog
+    setInterval(() => {
+        if (typeof window.syncAstranlogSocorros === 'function') {
+            window.syncAstranlogSocorros({ silent: true });
+        }
+    }, 120000);
 
     // === DASHBOARD TABS ===
     document.querySelectorAll('#dashboard-tabs .tab-btn').forEach(btn => {
@@ -2977,8 +3186,8 @@ Instruções importantes:
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
                     }
                 }
             });
@@ -3011,8 +3220,8 @@ Instruções importantes:
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
                     }
                 }
             });
@@ -3083,8 +3292,8 @@ Instruções importantes:
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
                     }
                 }
             });
@@ -3118,8 +3327,8 @@ Instruções importantes:
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#64748b' } },
+                        y: { grid: { display: false }, ticks: { color: '#64748b' } }
                     }
                 }
             });
@@ -3192,8 +3401,8 @@ Instruções importantes:
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
                     }
                 }
             });
@@ -3222,7 +3431,7 @@ Instruções importantes:
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }
+                    plugins: { legend: { position: 'bottom', labels: { color: '#475569', font: { family: 'Plus Jakarta Sans' } } } }
                 }
             });
         }
@@ -3297,7 +3506,7 @@ Instruções importantes:
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }
+                    plugins: { legend: { position: 'bottom', labels: { color: '#475569', font: { family: 'Plus Jakarta Sans' } } } }
                 }
             });
         }
@@ -3343,10 +3552,10 @@ Instruções importantes:
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', labels: { color: '#94a3b8' } } },
+                    plugins: { legend: { position: 'top', labels: { color: '#475569', font: { family: 'Plus Jakarta Sans' } } } },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
                     }
                 }
             });
@@ -3719,10 +3928,10 @@ Instruções importantes:
     // CSV Guincho
     document.getElementById('btn-csv-guincho')?.addEventListener('click', () => {
         const filtered = getFilteredGuincho();
-        const headers = ['Data Início', 'Placa', 'Motorista', 'KM Inicial', 'KM Final', 'KM Percorrido', 'Valor Cobrado (R$)', 'Status', 'Observações'];
+        const headers = ['Data Início', 'Placa Guincho', 'Placa Socorrida', 'Motorista', 'KM Inicial', 'KM Final', 'KM Percorrido', 'Valor Cobrado (R$)', 'Status', 'Observações'];
         const rows = filtered.map(s => [
             s.data_inicio ? new Date(s.data_inicio).toLocaleString('pt-BR') : '',
-            s.placa, s.motorista || '', s.km_inicial || '', s.km_final || '', s.km_percorrido || '',
+            s.placa, getPlacaSocorrida(s), s.motorista || '', s.km_inicial || '', s.km_final || '', s.km_percorrido || '',
             s.valor_cobrado, s.status, s.observacoes || ''
         ]);
         exportToCSV('servicos_guincho', headers, rows);
