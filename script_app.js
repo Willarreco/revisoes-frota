@@ -959,10 +959,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Maintenance
-    let currentServices = [], currentParts = [];
+    let currentServices = [], currentParts = [], currentLabor = [];
     let editingActivityIndex = null;
     const servicesBody = document.getElementById('maint-services-body');
     const partsBody = document.getElementById('maint-parts-body');
+    const laborBody = document.getElementById('maint-labor-body');
 
     window.loadMaintForEdit = (index) => {
         const a = activities[index];
@@ -982,11 +983,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // We don't have individual items saved in activities yet, so we'll just put the total as a single service for now
-        // or just let them re-enter if it's a legacy record. 
-        // Improvement: Activities should store the services/parts list.
         currentServices = [{ desc: a.service, price: a.cost }];
         currentParts = [];
+        currentLabor = [];
         renderMaintItems();
         navigateTo('manutencao');
     };
@@ -1010,81 +1009,123 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.renderMaintItems = () => {
-        servicesBody.innerHTML = '';
-        currentServices.forEach((s, i) => {
-            const tr = document.createElement('tr');
-            if (s.isEditing) {
-                tr.innerHTML = `
-                    <td><input type="text" class="form-input" value="${s.desc}" placeholder="Ex: Troca de Óleo" oninput="updateMaintItem('service',${i},'desc',this.value)"></td>
-                    <td><input type="text" inputmode="decimal" class="form-input" value="${s.price === 0 ? '' : fmtNum(s.price)}" placeholder="0,00" oninput="updateMaintItem('service',${i},'price',this.value)"></td>
-                    <td>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" class="btn-icon text-success" onclick="toggleMaintEdit('service',${i},false)"><i data-lucide="check"></i></button>
-                            <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('service',${i})"><i data-lucide="trash-2"></i></button>
-                        </div>
-                    </td>`;
-            } else {
-                tr.innerHTML = `
-                    <td style="padding: 1rem;">${s.desc || '---'}</td>
-                    <td style="padding: 1rem;">R$ ${(s.price || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                    <td>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" class="btn-icon" onclick="toggleMaintEdit('service',${i},true)"><i data-lucide="edit-2" class="text-primary"></i></button>
-                            <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('service',${i})"><i data-lucide="trash-2"></i></button>
-                        </div>
-                    </td>`;
-            }
-            servicesBody.appendChild(tr);
-        });
+        if (servicesBody) {
+            servicesBody.innerHTML = '';
+            currentServices.forEach((s, i) => {
+                const tr = document.createElement('tr');
+                if (s.isEditing) {
+                    tr.innerHTML = `
+                        <td><input type="text" class="form-input" value="${s.desc}" placeholder="Ex: Troca de Óleo" oninput="updateMaintItem('service',${i},'desc',this.value)"></td>
+                        <td><input type="text" inputmode="decimal" class="form-input" value="${s.price === 0 ? '' : fmtNum(s.price)}" placeholder="0,00" oninput="updateMaintItem('service',${i},'price',this.value)"></td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" class="btn-icon text-success" onclick="toggleMaintEdit('service',${i},false)"><i data-lucide="check"></i></button>
+                                <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('service',${i})"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </td>`;
+                } else {
+                    tr.innerHTML = `
+                        <td style="padding: 1rem;">${s.desc || '---'}</td>
+                        <td style="padding: 1rem;">R$ ${(s.price || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" class="btn-icon" onclick="toggleMaintEdit('service',${i},true)"><i data-lucide="edit-2" class="text-primary"></i></button>
+                                <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('service',${i})"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </td>`;
+                }
+                servicesBody.appendChild(tr);
+            });
+        }
 
-        partsBody.innerHTML = '';
-        currentParts.forEach((p, i) => {
-            const tr = document.createElement('tr');
-            if (p.isEditing) {
-                tr.innerHTML = `
-                    <td><input type="text" class="form-input" value="${p.desc}" placeholder="Ex: Filtro de Óleo" oninput="updateMaintItem('part',${i},'desc',this.value)"></td>
-                    <td><input type="text" inputmode="decimal" class="form-input" value="${p.price === 0 ? '' : fmtNum(p.price)}" placeholder="0,00" oninput="updateMaintItem('part',${i},'price',this.value)"></td>
-                    <td>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" class="btn-icon text-success" onclick="toggleMaintEdit('part',${i},false)"><i data-lucide="check"></i></button>
-                            <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('part',${i})"><i data-lucide="trash-2"></i></button>
-                        </div>
-                    </td>`;
-            } else {
-                tr.innerHTML = `
-                    <td style="padding: 1rem;">${p.desc || '---'}</td>
-                    <td style="padding: 1rem;">R$ ${(p.price || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                    <td>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" class="btn-icon" onclick="toggleMaintEdit('part',${i},true)"><i data-lucide="edit-2" class="text-primary"></i></button>
-                            <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('part',${i})"><i data-lucide="trash-2"></i></button>
-                        </div>
-                    </td>`;
-            }
-            partsBody.appendChild(tr);
-        });
-        const total = currentServices.reduce((s,x)=>s+(x.price || 0),0) + currentParts.reduce((s,x)=>s+(x.price || 0),0);
+        if (partsBody) {
+            partsBody.innerHTML = '';
+            currentParts.forEach((p, i) => {
+                const tr = document.createElement('tr');
+                if (p.isEditing) {
+                    tr.innerHTML = `
+                        <td><input type="text" class="form-input" value="${p.desc}" placeholder="Ex: Filtro de Óleo" oninput="updateMaintItem('part',${i},'desc',this.value)"></td>
+                        <td><input type="text" inputmode="decimal" class="form-input" value="${p.price === 0 ? '' : fmtNum(p.price)}" placeholder="0,00" oninput="updateMaintItem('part',${i},'price',this.value)"></td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" class="btn-icon text-success" onclick="toggleMaintEdit('part',${i},false)"><i data-lucide="check"></i></button>
+                                <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('part',${i})"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </td>`;
+                } else {
+                    tr.innerHTML = `
+                        <td style="padding: 1rem;">${p.desc || '---'}</td>
+                        <td style="padding: 1rem;">R$ ${(p.price || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" class="btn-icon" onclick="toggleMaintEdit('part',${i},true)"><i data-lucide="edit-2" class="text-primary"></i></button>
+                                <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('part',${i})"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </td>`;
+                }
+                partsBody.appendChild(tr);
+            });
+        }
+
+        if (laborBody) {
+            laborBody.innerHTML = '';
+            currentLabor.forEach((l, i) => {
+                const tr = document.createElement('tr');
+                if (l.isEditing) {
+                    tr.innerHTML = `
+                        <td><input type="text" class="form-input" value="${l.desc}" placeholder="Ex: Mão de obra mecânica" oninput="updateMaintItem('labor',${i},'desc',this.value)"></td>
+                        <td><input type="text" inputmode="decimal" class="form-input" value="${l.price === 0 ? '' : fmtNum(l.price)}" placeholder="0,00" oninput="updateMaintItem('labor',${i},'price',this.value)"></td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" class="btn-icon text-success" onclick="toggleMaintEdit('labor',${i},false)"><i data-lucide="check"></i></button>
+                                <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('labor',${i})"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </td>`;
+                } else {
+                    tr.innerHTML = `
+                        <td style="padding: 1rem;">${l.desc || '---'}</td>
+                        <td style="padding: 1rem;">R$ ${(l.price || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" class="btn-icon" onclick="toggleMaintEdit('labor',${i},true)"><i data-lucide="edit-2" class="text-primary"></i></button>
+                                <button type="button" class="btn-icon text-danger" onclick="removeMaintItem('labor',${i})"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </td>`;
+                }
+                laborBody.appendChild(tr);
+            });
+        }
+
+        const total = currentServices.reduce((s,x)=>s+(x.price || 0),0) + currentParts.reduce((s,x)=>s+(x.price || 0),0) + currentLabor.reduce((s,x)=>s+(x.price || 0),0);
         document.getElementById('maint-total-price').textContent = `R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
         if (window.lucide) lucide.createIcons();
     };
 
     window.toggleMaintEdit = (t, i, state) => {
-        const list = t === 'service' ? currentServices : currentParts;
-        list[i].isEditing = state;
+        const list = t === 'service' ? currentServices : (t === 'part' ? currentParts : currentLabor);
+        if (list[i]) list[i].isEditing = state;
         renderMaintItems();
     };
 
     window.updateMaintItem = (t, i, f, v) => {
-        const list = t === 'service' ? currentServices : currentParts;
-        list[i][f] = f === 'price' ? (parseNum(v) || 0) : v;
-        const total = currentServices.reduce((s,x)=>s+x.price,0) + currentParts.reduce((s,x)=>s+x.price,0);
-        document.getElementById('maint-total-price').textContent = `R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        const list = t === 'service' ? currentServices : (t === 'part' ? currentParts : currentLabor);
+        if (list[i]) {
+            list[i][f] = f === 'price' ? (parseNum(v) || 0) : v;
+            const total = currentServices.reduce((s,x)=>s+(x.price||0),0) + currentParts.reduce((s,x)=>s+(x.price||0),0) + currentLabor.reduce((s,x)=>s+(x.price||0),0);
+            document.getElementById('maint-total-price').textContent = `R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+        }
     };
 
-    window.removeMaintItem = (t, i) => { if(t==='service') currentServices.splice(i,1); else currentParts.splice(i,1); renderMaintItems(); };
+    window.removeMaintItem = (t, i) => {
+        if (t === 'service') currentServices.splice(i,1);
+        else if (t === 'part') currentParts.splice(i,1);
+        else if (t === 'labor') currentLabor.splice(i,1);
+        renderMaintItems();
+    };
 
     document.getElementById('add-service-row')?.addEventListener('click', () => { currentServices.push({desc:'', price:0, isEditing: true}); renderMaintItems(); });
     document.getElementById('add-part-row')?.addEventListener('click', () => { currentParts.push({desc:'', price:0, isEditing: true}); renderMaintItems(); });
+    document.getElementById('add-labor-row')?.addEventListener('click', () => { currentLabor.push({desc:'', price:0, isEditing: true}); renderMaintItems(); });
 
     document.getElementById('save-maintenance')?.addEventListener('click', async () => {
         const vId = document.getElementById('maint-vehicle-select').value;
@@ -1093,8 +1134,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const date = document.querySelector('#manutencao input[type="date"]').value;
 
         if (!vId) return showToast('Selecione um veículo.', 'warning');
-        const total = currentServices.reduce((s,x)=>s+x.price,0) + currentParts.reduce((s,x)=>s+x.price,0);
-        if (total === 0) return showToast('Adicione pelo menos um serviço ou mão de obra com valor.', 'warning');
+        const total = currentServices.reduce((s,x)=>s+(x.price||0),0) + currentParts.reduce((s,x)=>s+(x.price||0),0) + currentLabor.reduce((s,x)=>s+(x.price||0),0);
+        if (total === 0) return showToast('Adicione pelo menos um serviço, peça ou mão de obra com valor.', 'warning');
 
         try {
             const { data: { user } } = await window.supabaseClient.auth.getUser();
@@ -1103,6 +1144,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const allDescs = [];
             currentServices.forEach(s => { if(s.desc) allDescs.push(s.desc); });
             currentParts.forEach(p => { if(p.desc) allDescs.push(p.desc); });
+            currentLabor.forEach(l => { if(l.desc) allDescs.push(l.desc); });
             const serviceDesc = allDescs.length > 0 ? allDescs.join(', ') : 'Manutenção Geral';
 
             const payload = {
@@ -1139,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             await fetchInitialData();
-            currentServices = []; currentParts = []; renderMaintItems();
+            currentServices = []; currentParts = []; currentLabor = []; renderMaintItems();
             showToast('Registro de manutenção salvo com sucesso!', 'success');
             navigateTo('dashboard');
         } catch (error) {
@@ -1155,8 +1197,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 maintTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
-                document.getElementById('services-table-container').style.display = tab === 'services' ? 'block' : 'none';
-                document.getElementById('parts-table-container').style.display = tab === 'parts' ? 'block' : 'none';
+                const servContainer = document.getElementById('services-table-container');
+                const partsContainer = document.getElementById('parts-table-container');
+                const laborContainer = document.getElementById('labor-table-container');
+
+                if (servContainer) servContainer.style.display = tab === 'services' ? 'block' : 'none';
+                if (partsContainer) partsContainer.style.display = tab === 'parts' ? 'block' : 'none';
+                if (laborContainer) laborContainer.style.display = tab === 'labor' ? 'block' : 'none';
             });
         });
     }
