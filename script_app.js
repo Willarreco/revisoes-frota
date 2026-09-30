@@ -2596,7 +2596,7 @@ Instruções importantes:
                     } else {
                         const serv = (c.servico || '').toLowerCase();
                         const mot = (c.motivo || c.motivo_final || '').toLowerCase();
-                        if (serv.includes('extra pesado') || serv.includes('pesado') || mot.includes('tombamento')) {
+                        if (serv.includes('extra pesado') || serv.includes('pesado') || serv.includes('moviment') || mot.includes('tombamento')) {
                             targetPlate = 'QRD9G90';
                         } else {
                             targetPlate = 'FCF5J84';
