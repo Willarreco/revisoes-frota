@@ -70,11 +70,22 @@ export default async function handler(req, res) {
 
         const chamados = await chamadosRes.json();
 
-        // Filtrar finalizados / atendidos
+        // Filtrar apenas chamados finalizados do histórico de atendimento (atendidos e concluídos)
         const finalizados = chamados.filter(c => {
-            const sit = (c.situacao || '').toLowerCase();
             const st = (c.status || '').toLowerCase();
-            return sit === 'finalizado' || sit === 'aguardando_pagamento' || st === 'atendido' || c.finalizado_em != null;
+            const sit = (c.situacao || '').toLowerCase();
+
+            if (st === 'cancelado' || st === 'negado' || st === 'recusado' || st === 'em_andamento' || st === 'aberto' || st === 'pendente') {
+                return false;
+            }
+            if (sit === 'cancelado' || sit === 'negado' || sit === 'aberto' || sit === 'em_andamento') {
+                return false;
+            }
+
+            const isAtendido = st === 'atendido' || st === 'concluido' || st === 'finalizado' || st === 'realizado';
+            const isFinalState = sit === 'finalizado' || sit === 'aguardando_pagamento' || sit === 'pago' || c.finalizado_em != null;
+
+            return isAtendido && isFinalState;
         });
 
         const records = finalizados.map(c => {
