@@ -2534,7 +2534,7 @@ Instruções importantes:
                 'Authorization': `Bearer ${token}`
             };
 
-            const res = await fetch(`${ASTRANLOG_CONFIG.url}/rest/v1/chamados?prestador=ilike.*${ASTRANLOG_CONFIG.targetPrestador}*&order=created_at.desc`, { headers });
+            const res = await fetch(`${ASTRANLOG_CONFIG.url}/rest/v1/chamados?or=(prestador.ilike.*astran*,empresa.ilike.*astran*)&order=created_at.desc`, { headers });
             if (!res.ok) {
                 throw new Error(`Erro HTTP ${res.status} ao consultar Instant Aid Flow`);
             }

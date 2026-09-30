@@ -61,8 +61,8 @@ export default async function handler(req, res) {
             'Authorization': `Bearer ${token}`
         };
 
-        // Buscar chamados do prestador ASTRANLOG no Instant Aid Flow
-        const chamadosRes = await fetch(`${INSTANT_AID_URL}/rest/v1/chamados?prestador=ilike.*astranlog*&order=created_at.desc`, { headers });
+        // Buscar todos os chamados da Astran / Astranlog no Instant Aid Flow
+        const chamadosRes = await fetch(`${INSTANT_AID_URL}/rest/v1/chamados?or=(prestador.ilike.*astran*,empresa.ilike.*astran*)&order=created_at.desc`, { headers });
         
         if (!chamadosRes.ok) {
             return res.status(chamadosRes.status).json({ error: 'Erro ao buscar chamados da Astranlog' });
