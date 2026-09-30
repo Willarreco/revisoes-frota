@@ -2756,41 +2756,53 @@ Instruções importantes:
 
     function cleanPlate(input) {
         if (!input || typeof input !== 'string') return '---';
-        let s = input.trim();
-        if (s === '' || s === '---') return '---';
+        let s = input.trim().toUpperCase();
+        if (s === '' || s === '---' || s === 'NULL' || s === 'UNDEFINED') return '---';
 
-        const match = s.match(/([A-Z]{3}-?[0-9][A-Z0-9][0-9]{2})/i);
-        if (match) {
-            return match[1].replace('-', '').toUpperCase();
+        s = s.replace(/^[\s\(\)"'\-]+|[\s\(\)"'\-]+$/g, '');
+
+        const mercosulMatch = s.match(/([A-Z]{3})[\s\-]?([0-9][A-Z0-9][0-9]{2})/i);
+        if (mercosulMatch) {
+            return (mercosulMatch[1] + mercosulMatch[2]).toUpperCase();
         }
 
-        s = s.split('(')[0].split('-')[0].trim().toUpperCase();
-        if (s.length >= 7 && s.length <= 8 && /^[A-Z0-9]+$/.test(s)) {
-            return s;
+        const tradMatch = s.match(/([A-Z]{3})[\s\-]?([0-9]{4})/i);
+        if (tradMatch) {
+            return (tradMatch[1] + tradMatch[2]).toUpperCase();
         }
+
+        let fallback = s.split('(')[0].split('-')[0].replace(/[^A-Z0-9]/g, '').toUpperCase();
+        if (fallback.length >= 6 && fallback.length <= 8) {
+            return fallback;
+        }
+
         return '---';
     }
     window.cleanPlate = cleanPlate;
 
     function getPlacaSocorrida(s) {
         if (!s) return '---';
+
         if (s.placa_socorrida && s.placa_socorrida !== '---') {
             const cleaned = cleanPlate(s.placa_socorrida);
             if (cleaned !== '---') return cleaned;
         }
+        if (s.placa_atendida && s.placa_atendida !== '---') {
+            const cleaned = cleanPlate(s.placa_atendida);
+            if (cleaned !== '---') return cleaned;
+        }
+
         if (s.observacoes) {
-            const matchObs = s.observacoes.match(/Socorro Placa:\s*([A-Z0-9\-\s\(\)]+?)(?=\s*\([A-Z\s]+\)\s*-|\s*-|\s*\(|\.|\,|\]|$)/i) || 
-                              s.observacoes.match(/Socorro Placa:\s*([^\.\-\]\,]+)/i);
-            if (matchObs) {
-                const cleaned = cleanPlate(matchObs[1]);
+            const matchLabeled = s.observacoes.match(/(?:Socorro\s*Placa|Placa\s*Socorrida|Placa\s*Atendida|Placa|Ve[ií]culo)\s*[:=-]?\s*([A-Z0-9\-\s\(\)]+?)(?=\s*\([A-Z\s]+\)\s*-|\s*-|\s*\(|\.|\,|\]|$)/i);
+            if (matchLabeled) {
+                const cleaned = cleanPlate(matchLabeled[1]);
                 if (cleaned !== '---') return cleaned;
             }
 
-            const match = s.observacoes.match(/([A-Z]{3}-?[0-9][A-Z0-9][0-9]{2})/i);
-            if (match) {
-                return match[1].replace('-', '').toUpperCase();
-            }
+            const cleanedObs = cleanPlate(s.observacoes);
+            if (cleanedObs !== '---') return cleanedObs;
         }
+
         return '---';
     }
     window.getPlacaSocorrida = getPlacaSocorrida;
