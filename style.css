@@ -1095,9 +1095,26 @@ select.form-input option {
 }
 
 /* Custom Multi-Select Component */
+.card-filter,
+.card:has(.custom-multi-select) {
+    position: relative;
+    z-index: 50;
+}
+
+.stats-grid {
+    position: relative;
+    z-index: 1;
+}
+
 .custom-multi-select {
     position: relative;
     width: 100%;
+    z-index: 100;
+}
+
+.custom-multi-select:focus-within,
+.custom-multi-select.open {
+    z-index: 1000;
 }
 
 .multi-select-btn {
@@ -1106,7 +1123,7 @@ select.form-input option {
     align-items: center;
     justify-content: space-between;
     padding: 0.6rem 0.85rem;
-    background: var(--bg-card, #ffffff);
+    background: var(--card-bg, #ffffff);
     border: 1px solid var(--border-color, #cbd5e1);
     border-radius: 8px;
     color: var(--text-primary, #0f172a);
@@ -1147,11 +1164,11 @@ select.form-input option {
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    background: var(--bg-card, #ffffff);
-    border: 1px solid var(--border-color, #cbd5e1);
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--card-border, #cbd5e1);
     border-radius: 10px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.18);
-    z-index: 1000;
+    box-shadow: 0 14px 35px rgba(0,0,0,0.3);
+    z-index: 99999 !important;
     padding: 0.5rem;
     display: flex;
     flex-direction: column;
