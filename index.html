@@ -337,7 +337,31 @@
                     <div class="card mb-4">
                         <div class="card-header"><h3 class="card-title">Filtros de Relatório - Manutenções</h3></div>
                         <div class="form-row mt-4">
-                            <div class="form-group"><label>Veículo</label><select class="form-input" id="filter-vehicle-select"></select></div>
+                            <div class="form-group" style="min-width: 260px;">
+                                <label>Veículos (Multi-Seleção)</label>
+                                <div class="custom-multi-select" id="multi-select-vehicle-wrapper">
+                                    <button type="button" class="multi-select-btn" id="multi-select-vehicle-btn">
+                                        <span class="multi-select-label" id="multi-select-vehicle-label">Todos os Veículos</span>
+                                        <span class="multi-select-badge" id="multi-select-vehicle-badge">0</span>
+                                        <i data-lucide="chevron-down" style="width:16px;height:16px;"></i>
+                                    </button>
+                                    <div class="multi-select-dropdown" id="multi-select-vehicle-dropdown" style="display:none;">
+                                        <div class="multi-select-search">
+                                            <i data-lucide="search" style="width:14px;height:14px;color:var(--text-secondary)"></i>
+                                            <input type="text" id="multi-select-vehicle-search" placeholder="Buscar modelo ou placa...">
+                                        </div>
+                                        <div class="multi-select-actions">
+                                            <label class="multi-select-option select-all-option" style="padding:0;margin:0;">
+                                                <input type="checkbox" id="multi-select-vehicle-all" checked>
+                                                <span><b>Selecionar Todos</b></span>
+                                            </label>
+                                            <button type="button" class="btn-text-clear" id="multi-select-vehicle-clear">Limpar</button>
+                                        </div>
+                                        <div class="multi-select-options-list" id="multi-select-vehicle-options"></div>
+                                    </div>
+                                </div>
+                                <select id="filter-vehicle-select" style="display:none;"></select>
+                            </div>
                             <div class="form-group"><label>Início</label><input type="date" class="form-input" id="filter-start-date"></div>
                             <div class="form-group"><label>Fim</label><input type="date" class="form-input" id="filter-end-date"></div>
                             <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
@@ -809,7 +833,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js?v=3"></script>
     <script src="auth.js?v=3"></script>
-    <script src="script_app.js?v=27"></script>
+    <script src="script_app.js?v=28"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>

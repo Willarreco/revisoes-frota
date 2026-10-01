@@ -1233,15 +1233,152 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     
+    // === COMPONENTE MULTI-SELECT DE VEÍCULOS / PLACAS ===
+    let selectedVehiclePlates = []; // array vazio = TODOS selecionados
+
+    window.initVehicleMultiSelect = () => {
+        const wrapper = document.getElementById('multi-select-vehicle-wrapper');
+        const btn = document.getElementById('multi-select-vehicle-btn');
+        const dropdown = document.getElementById('multi-select-vehicle-dropdown');
+        const labelEl = document.getElementById('multi-select-vehicle-label');
+        const badgeEl = document.getElementById('multi-select-vehicle-badge');
+        const optionsContainer = document.getElementById('multi-select-vehicle-options');
+        const selectAllCb = document.getElementById('multi-select-vehicle-all');
+        const clearBtn = document.getElementById('multi-select-vehicle-clear');
+        const searchInput = document.getElementById('multi-select-vehicle-search');
+
+        if (!btn || !dropdown || !optionsContainer || wrapper?.dataset.initialized === 'true') return;
+        if (wrapper) wrapper.dataset.initialized = 'true';
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = dropdown.style.display === 'flex';
+            dropdown.style.display = isOpen ? 'none' : 'flex';
+            if (!isOpen && searchInput) searchInput.focus();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (wrapper && !wrapper.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        dropdown.addEventListener('click', (e) => e.stopPropagation());
+
+        window.renderVehicleMultiSelectOptions = () => {
+            if (!vehicles || vehicles.length === 0) {
+                optionsContainer.innerHTML = '<div style="padding:0.5rem;font-size:0.85rem;color:var(--text-secondary)">Nenhum veículo cadastrado.</div>';
+                return;
+            }
+
+            const filterText = (searchInput?.value || '').toLowerCase().trim();
+            const filteredVehicles = vehicles.filter(v => {
+                const text = `${v.brand} ${v.model} ${v.plate}`.toLowerCase();
+                return text.includes(filterText);
+            });
+
+            optionsContainer.innerHTML = filteredVehicles.map(v => {
+                const isChecked = selectedVehiclePlates.length === 0 || selectedVehiclePlates.includes(v.plate) || selectedVehiclePlates.includes(v.id);
+                return `
+                    <label class="multi-select-option" data-plate="${v.plate}" data-id="${v.id}">
+                        <input type="checkbox" class="vehicle-cb" value="${v.plate}" ${isChecked ? 'checked' : ''}>
+                        <span><strong>${v.model}</strong> - <span style="color:var(--primary);font-weight:700">${v.plate}</span></span>
+                    </label>
+                `;
+            }).join('');
+
+            optionsContainer.querySelectorAll('.vehicle-cb').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    updateSelectedPlatesFromCBs();
+                });
+            });
+
+            updateMultiSelectHeaderUI();
+        };
+
+        function updateSelectedPlatesFromCBs() {
+            const allCBs = optionsContainer.querySelectorAll('.vehicle-cb');
+            const checkedCBs = Array.from(allCBs).filter(cb => cb.checked);
+
+            if (checkedCBs.length === allCBs.length || checkedCBs.length === 0) {
+                selectedVehiclePlates = [];
+                if (selectAllCb) selectAllCb.checked = true;
+            } else {
+                selectedVehiclePlates = checkedCBs.map(cb => cb.value);
+                if (selectAllCb) selectAllCb.checked = false;
+            }
+
+            updateMultiSelectHeaderUI();
+            if (typeof updateRelatorioManutencaoStats === 'function') {
+                updateRelatorioManutencaoStats();
+            }
+        }
+
+        function updateMultiSelectHeaderUI() {
+            const totalVehicles = vehicles.length;
+            const selectedCount = selectedVehiclePlates.length === 0 ? totalVehicles : selectedVehiclePlates.length;
+
+            if (badgeEl) badgeEl.textContent = selectedCount;
+
+            if (selectedVehiclePlates.length === 0 || selectedVehiclePlates.length === totalVehicles) {
+                labelEl.textContent = `Todos os Veículos (${totalVehicles})`;
+            } else if (selectedVehiclePlates.length === 1) {
+                const plate = selectedVehiclePlates[0];
+                const found = vehicles.find(v => v.plate === plate || v.id === plate);
+                labelEl.textContent = found ? `${found.model} - ${found.plate}` : plate;
+            } else {
+                labelEl.textContent = `${selectedVehiclePlates.length} Veículos Selecionados`;
+            }
+        }
+
+        if (selectAllCb) {
+            selectAllCb.addEventListener('change', () => {
+                const isChecked = selectAllCb.checked;
+                optionsContainer.querySelectorAll('.vehicle-cb').forEach(cb => cb.checked = isChecked);
+                selectedVehiclePlates = [];
+                updateMultiSelectHeaderUI();
+                if (typeof updateRelatorioManutencaoStats === 'function') {
+                    updateRelatorioManutencaoStats();
+                }
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                optionsContainer.querySelectorAll('.vehicle-cb').forEach(cb => cb.checked = false);
+                if (selectAllCb) selectAllCb.checked = false;
+                selectedVehiclePlates = ['__NONE__'];
+                updateMultiSelectHeaderUI();
+                if (typeof updateRelatorioManutencaoStats === 'function') {
+                    updateRelatorioManutencaoStats();
+                }
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                window.renderVehicleMultiSelectOptions();
+            });
+        }
+    };
+
+    window.getSelectedVehiclePlates = () => {
+        return selectedVehiclePlates;
+    };
+
     window.updateVehicleSelect = () => {
         const s = document.getElementById('maint-vehicle-select');
         const fs = document.getElementById('filter-vehicle-select');
-        if (!s) return;
-        const options = '<option value="">Selecione um veículo</option>' + 
-                      vehicles.map(v => `<option value="${v.id}">${v.model} - ${v.plate}</option>`).join('');
-        s.innerHTML = options;
-        if (fs) fs.innerHTML = '<option value="">Todos os Veículos</option>' + 
-                             vehicles.map(v => `<option value="${v.plate}">${v.model} - ${v.plate}</option>`).join('');
+        if (s) {
+            s.innerHTML = '<option value="">Selecione um veículo</option>' + 
+                          vehicles.map(v => `<option value="${v.id}">${v.model} - ${v.plate}</option>`).join('');
+        }
+        if (fs) {
+            fs.innerHTML = '<option value="">Todos os Veículos</option>' + 
+                         vehicles.map(v => `<option value="${v.plate}">${v.model} - ${v.plate}</option>`).join('');
+        }
+        if (window.initVehicleMultiSelect) window.initVehicleMultiSelect();
+        if (window.renderVehicleMultiSelectOptions) window.renderVehicleMultiSelectOptions();
     };
 
     // --- INTEGRACAO GEMINI OCR ---
@@ -3306,12 +3443,20 @@ Instruções importantes:
 
     // --- RELATÓRIO DE MANUTENÇÕES ---
     function getFilteredManutencoesRelatorio() {
-        const vId = document.getElementById('filter-vehicle-select')?.value;
+        const selectedPlates = window.getSelectedVehiclePlates ? window.getSelectedVehiclePlates() : [];
+        const vIdSingle = document.getElementById('filter-vehicle-select')?.value;
         const start = document.getElementById('filter-start-date')?.value;
         const end = document.getElementById('filter-end-date')?.value;
 
         return activities.filter(a => {
-            if (vId && a.vehicle_id !== vId && a.plate !== vId) return false;
+            if (selectedPlates.includes('__NONE__')) return false;
+            if (selectedPlates.length > 0) {
+                const matchesMulti = selectedPlates.includes(a.plate) || selectedPlates.includes(a.vehicle_id);
+                if (!matchesMulti) return false;
+            } else if (vIdSingle && a.vehicle_id !== vIdSingle && a.plate !== vIdSingle) {
+                return false;
+            }
+
             if (start) {
                 const parts = a.date.split('/');
                 const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
