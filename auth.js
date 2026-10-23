@@ -26,26 +26,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        btnRegister.addEventListener('click', async () => {
-            const email = emailInput.value;
-            const password = passwordInput.value;
+        if (btnRegister) {
+            btnRegister.addEventListener('click', async () => {
+                const email = emailInput.value;
+                const password = passwordInput.value;
 
-            if (!email || !password) {
-                showError('Preencha e-mail e senha para criar conta.');
-                return;
-            }
+                if (!email || !password) {
+                    showError('Preencha e-mail e senha para criar conta.');
+                    return;
+                }
 
-            const { data, error } = await supabaseClient.auth.signUp({
-                email,
-                password,
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email,
+                    password,
+                });
+
+                if (error) {
+                    showError(error.message);
+                } else {
+                    showSuccess('Conta criada com sucesso! Agora clique em "Entrar".');
+                }
             });
-
-            if (error) {
-                showError(error.message);
-            } else {
-                showSuccess('Conta criada com sucesso! Agora clique em "Entrar".');
-            }
-        });
+        }
     }
 
     function showError(msg) {
